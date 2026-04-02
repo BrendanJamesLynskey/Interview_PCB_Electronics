@@ -1,0 +1,45 @@
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# CAD files (temporary, backup, and locked)
+*.bak
+*.tmp
+*-backup.*
+*.lck
+*.open
+
+# Design tool caches
+*.cache
+.cache/
+
+# Build and output
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.bmp
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+venv/
+
+# Node (if any web content)
+node_modules/
+npm-debug.log
+
+# Misc
+.DS_Store
