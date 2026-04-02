@@ -6,7 +6,7 @@ A first-article four-layer PCB has been assembled. It contains:
 - Input: 12 V barrel jack connector
 - A 5 V/2 A synchronous buck converter (Texas Instruments TPS54240)
 - A 3.3 V/500 mA LDO (TI TLV1117-3.3), powered from the 5 V rail
-- A 1.8 V/1 A LDO (TI TLV62130), powered from the 3.3 V rail
+- A 1.8 V/1 A synchronous buck converter (TI TLV62130), powered from the 3.3 V rail
 - A Cortex-M4 microcontroller (STM32F405) on the 3.3 V core and 1.8 V I/O rails
 - All passives: resistors, capacitors, decoupling network
 

@@ -157,9 +157,7 @@ Detailed operation — LOW driven from 3.3 V side (MCU pulls SDA low):
 
 Detailed operation — LOW driven from 1.8 V side (processor pulls SDA low):
   Processor pulls SDA_1V8 to GND.
-  VGS = 1.8 V (gate) - 0 V (source, now pulled to GND through processor) = 1.8 V.
-  Wait — the source is now at GND (pulled by processor), not at VDD_1V8.
-  The gate is still tied to VDD_1V8 = 1.8 V.
+  The source is now at GND (pulled by processor); the gate is tied to VDD_1V8 = 1.8 V.
   VGS = 1.8 V > threshold → MOSFET turns on strongly.
   SDA_3V3 is pulled low through the channel. ✓
 

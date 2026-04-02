@@ -80,13 +80,6 @@ Output at full scale: ±10 mV × 253 = ±2.53 V — slightly over the 2.5 V targ
 **Source impedance:**
 
 The differential source impedance seen by the INA inputs is:
-```
-Rsource_diff = R_bridge_arm || R_bridge_arm (from each input) × 2
-             = (5 kΩ || 5 kΩ) + (5 kΩ || 5 kΩ)
-             = 2.5 kΩ + 2.5 kΩ = 5 kΩ differential
-```
-
-Wait — for a Wheatstone bridge:
 
 ```
 V+ input sees: R1 || R3 = 5k || 5k = 2.5 kΩ to Vexc and GND

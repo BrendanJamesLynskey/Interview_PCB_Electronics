@@ -389,10 +389,11 @@ The capacitor is behaving as an **inductor** at 100 MHz. The 10 µF capacitance 
 
 ```
 f_SRF = 1 / (2π × √(L × C)) = 1 / (2π × √(0.5×10⁻⁹ × 10×10⁻⁶))
-       = 1 / (2π × 2.24×10⁻⁶) = 71 kHz
+       = 1 / (2π × √(5×10⁻¹⁵))
+       = 1 / (2π × 7.07×10⁻⁸) ≈ 2.25 MHz
 ```
 
-Below 71 kHz this capacitor is capacitive. Above 71 kHz it is inductive. At 100 MHz it presents ~314 mΩ of inductive impedance.
+Below 2.25 MHz this capacitor is capacitive. Above 2.25 MHz it is inductive. At 100 MHz it presents ~314 mΩ of inductive impedance.
 
 **Design implication:** For 100 MHz decoupling, smaller capacitors with lower ESL (smaller package, fewer turns of MLCC stack) are needed. A 100 pF 0402 C0G has ESL ~0.3 nH and SRF near 1 GHz — it provides low impedance at 100 MHz where the 10 µF bulk cap fails.
 

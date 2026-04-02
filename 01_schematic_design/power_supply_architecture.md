@@ -441,9 +441,7 @@ Input current from 5 V: 12.33 / 5 = 2.47 A
 Heat dissipated in converters: 12.33 - 11.1 = 1.23 W
 ```
 
-**Architecture B — 5V→1.8V buck (90%), then 1.8V→0.9V LDO (85% = 0.9/1.8×100%):**
-
-Wait — note that 0.9/1.8 = 50% efficiency, not 85%.
+**Architecture B — 5V→1.8V buck (90%), then 1.8V→0.9V LDO (50% = 0.9/1.8×100%):**
 
 ```
 LDO efficiency is determined by the voltage ratio:

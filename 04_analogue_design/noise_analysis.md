@@ -317,19 +317,13 @@ V_rms_white = e_n_white × sqrt(BW) = 10 × sqrt(9000) = 10 × 94.9 = 949 nV RMS
    e_INA = 8 nV/√Hz × sqrt(100 Hz) = 8 × 10 = 80 nV RMS (RTI)
 
 2. Source resistance thermal noise:
-   The Wheatstone bridge has differential output impedance:
-   Rsource_diff = R1||R2 + R3||R4 = 175 Ω + 175 Ω = 350 Ω (balanced bridge)
-   Wait — differential source impedance of a bridge:
+   Differential source impedance of the bridge:
    From V+ terminal: R1||R2 = 350||350 = 175 Ω
    From V– terminal: R3||R4 = 175 Ω
    Total differential: 350 Ω
 
-   e_Rsource = sqrt(4 × 1.38e-23 × 300 × 350) = sqrt(5.80e-18) = 76 pV/√Hz = 0.076 nV/√Hz
-
-   Wait — recalculate:
    e_Rsource = sqrt(4kTR) = sqrt(4 × 1.38e-23 × 300 × 350)
-             = sqrt(5.796e-18) nope...
-   = sqrt(5.796e-18) = 2.41e-9 V/√Hz = 2.41 nV/√Hz
+             = sqrt(5.796e-18) = 2.41e-9 V/√Hz = 2.41 nV/√Hz
 
    Over 100 Hz: e_Rsource_rms = 2.41 × sqrt(100) = 24.1 nV RMS (RTI)
 

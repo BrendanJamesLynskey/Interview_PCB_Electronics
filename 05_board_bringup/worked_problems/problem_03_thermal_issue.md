@@ -132,7 +132,7 @@ Calculate buck converter power dissipation:
 ```
 Vin  = 5 V, Vout = 1.8 V (note: this buck is also supplying a 1.8 V rail elsewhere
   on the board — also loaded)
-  Wait: recheck the schematic.
+  Cross-reference with the schematic.
 
 Schematic review reveals: the MP2315S is set to Vout = 3.3 V (not 1.8 V), and the
 AP7331 LDO is a post-regulator from the 3.3 V buck output to a separate 3.3 V domain.
