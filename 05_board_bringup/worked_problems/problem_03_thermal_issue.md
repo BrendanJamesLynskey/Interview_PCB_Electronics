@@ -2,22 +2,22 @@
 
 ## Problem Statement
 
-A fully functional board has passed bring-up and is running a representative workload.
-The design includes:
-- A 5 V input, 1.8 V output synchronous buck converter rated at 3 A continuous
-  (Monolithic Power Systems MP2315S, 8-pin SOIC-8-EP package)
-  *(Note: the real MP2315S is supplied in a TSOT23-8 package with no exposed pad,
-  θJA ≈ 100°C/W per its datasheet; treat the exposed-pad part in this problem as
-  hypothetical.)*
-- A 3.3 V/500 mA LDO (Diodes Inc. AP7331) in a SOT-23-5 package
+A fully functional board has passed bring-up and is running a representative workload
+inside its product enclosure. The design includes:
+- A 12 V input, 3.3 V output synchronous buck converter rated at 3 A continuous
+  (Texas Instruments LMR33630ADDA, 8-pin HSOIC PowerPAD package with an exposed
+  thermal pad). It supplies the MCU, sensors, status LEDs and a display.
+- A 1.8 V/300 mA LDO (Diodes Inc. AP7331-18, SOT25 package), fed from the 3.3 V rail,
+  which supplies a 1.8 V sensor domain
 - An STM32F4 microcontroller running at 168 MHz, full load (100% CPU utilisation)
 - The PCB is a two-layer design with 1 oz copper on both sides
-- Ambient temperature: 25°C in still air (no forced convection)
+- Room temperature: 25°C, still air (no forced convection); the enclosure is sealed
 
-After 20 minutes at full load, the board resets unexpectedly. The reset is not triggered
-by software; the MCU's RCC_CSR register shows a PORST (power-on reset) flag, indicating
-the supply voltage dropped below the power-on reset threshold. The board recovers after
-the reset and resumes operation, only to reset again after approximately 15 minutes.
+After about 20 minutes at full load, the board resets unexpectedly. The reset is not
+triggered by software: the MCU's RCC_CSR register shows the PORRSTF (power-on reset)
+flag, meaning the supply voltage dropped below the power-on reset threshold. The board
+restarts, but while it is still hot it resets again every few seconds to few tens of
+seconds. It only runs normally again after being powered off and left to cool.
 
 **Task:** Diagnose the thermal root cause and provide a quantified remedy.
 
@@ -27,83 +27,68 @@ the reset and resumes operation, only to reset again after approximately 15 minu
 
 ### Step 1 — Characterise the Failure
 
-The PORST flag indicates the MCU's supply voltage (VDD = 3.3 V) dropped below the
-internal POR threshold (~1.8 V for STM32F4). This is a power supply failure, not a
-firmware error. The board recovers, which rules out permanent device damage.
+The PORRSTF flag shows that the MCU's supply (VDD = 3.3 V) dropped below the internal POR
+threshold (~1.8 V for STM32F4). This is a power supply failure, not a firmware error. The
+board recovers, which rules out permanent device damage.
 
-The fact that the failure occurs only after sustained operation at elevated temperature
-strongly suggests a **thermally-induced power supply failure**.
+Three features point to a **thermally induced power supply failure**:
+- It appears only after sustained operation.
+- It repeats quickly once the board is hot.
+- It clears after cooling.
 
-The two candidates supplying the MCU are:
-- The 3.3 V LDO (AP7331), which supplies the MCU
-- The 5 V buck converter, which supplies the LDO input
+Regulators with thermal shutdown behave exactly like this. They switch off at a junction
+temperature threshold and restart once the die has cooled through a hysteresis band.
 
-Either could be failing thermally. Work from the supply input toward the load.
+The supply chain is: 12 V input → buck (3.3 V) → MCU. The LDO hangs off the 3.3 V rail
+and feeds only the 1.8 V sensor domain.
 
-### Step 2 — Thermal Survey with Oscilloscope and Thermal Camera
+### Step 2 — Thermal Survey with Thermal Camera and Thermocouple
 
-**Initial thermal measurement (30-second exposure, full load):**
-
-Set up a thermal camera (FLIR One or equivalent) and observe the board at full load.
+Open the enclosure lid only long enough to take a reading after 18 minutes at full load,
+with a thermocouple taped inside the enclosure:
 
 ```
-Component temperatures observed:
-  MP2315S (buck converter):   71°C
-  AP7331 (LDO, SOT-23-5):    96°C  ← significantly elevated
-  STM32F4 (MCU):              58°C
-  Ambient:                    25°C
+Readings after 18 minutes:
+  Enclosure air (thermocouple):          44°C
+  LMR33630 (buck), package top:          160°C  ← far above anything else
+  AP7331 (LDO, SOT25), package top:       85°C
+  STM32F4 (MCU):                          60°C
 ```
 
-The AP7331 LDO at 96°C is immediately suspect. SOT-23-5 packages have a thermal
-resistance of approximately 200-350°C/W (junction-to-ambient, on a 2-layer PCB with
-minimal copper pour). The junction temperature is likely higher than the package surface
-temperature seen by the camera.
+Two things stand out:
+1. The enclosure air has risen 19°C above the room. This is the self-heating that makes
+   the failure take 20 minutes to appear.
+2. Both regulators are hot, but the buck is extreme.
 
-**Thermal camera emissivity note:** The SOT-23-5 package body (black epoxy) has
-emissivity ε ≈ 0.95, so the 96°C surface reading is reasonably accurate.
+**Thermal camera emissivity note:** Black epoxy package bodies have emissivity ε ≈ 0.95,
+so the surface readings are reasonably accurate.
 
-### Step 3 — Calculate Expected LDO Junction Temperature
+### Step 3 — Rule the LDO In or Out
 
 LDO power dissipation:
 ```
-P_LDO = (V_in - V_out) × I_out + V_in × I_quiescent
+P_LDO = (V_in - V_out) × I_out + V_in × I_q
 
-V_in  = 5 V (from buck output)
-V_out = 3.3 V
-I_out = ??? (measure with a current probe or calculate from MCU power consumption)
-I_q   = 55 µA (from AP7331 datasheet) — negligible
+V_in  = 3.3 V (from the buck)
+V_out = 1.8 V
+I_out = 150 mA (1.8 V sensor domain, measured with a current probe)
+I_q   = 65 µA typical (AP7331 datasheet) — negligible
 
-STM32F4 at 168 MHz, full CPU utilisation:
-  Typical current from datasheet: ~80 mA at 168 MHz, 3.3 V
-  P_MCU = 3.3 V × 0.080 = 264 mW
-
-Therefore:
-  I_out ≈ 80 mA + peripherals ≈ 120 mA (estimate including I/O activity)
-
-P_LDO = (5.0 - 3.3) × 0.120 = 1.7 V × 0.120 A = 204 mW
+P_LDO = (3.3 - 1.8) × 0.150 + 3.3 × 65 µA = 225 mW
 ```
 
-Junction temperature estimate:
+Junction temperature:
 ```
-T_j = T_ambient + P_LDO × Rθja
-    = 25 + 0.204 × Rθja
+T_j = T_enclosure + P_LDO × Rθja
+From AP7331 datasheet: Rθja = 190°C/W (SOT25, minimum pad, single-sided 2 oz board)
 
-From AP7331 datasheet: Rθja = 252°C/W for SOT-23-5 on a standard single-layer PCB
-                              (two-layer PCB with no copper pour: ~220°C/W)
-
-T_j = 25 + 0.204 × 220 = 25 + 44.9 = 69.9°C   (junction temperature estimate)
-
-With actual measured surface temperature of 96°C, the junction is approximately:
-  T_j ≈ T_surface + small internal resistance gradient ≈ 100-110°C
+T_j = 44 + 0.225 × 190 = 44 + 42.8 = 86.8°C
 ```
 
-The AP7331 has an absolute maximum junction temperature of 125°C. At the calculated
-and measured temperatures, the device is approaching its limit, but should not be
-triggering its thermal shutdown (Tsd = 155°C typical) yet.
-
-**Reassessment:** The 15-20 minute time delay before failure suggests the thermal
-failure is not at the LDO itself. The MCU VDD supply might be drooping due to an
-associated thermal effect elsewhere.
+This is consistent with the 85°C surface reading. It is below the AP7331's 125°C maximum
+operating junction temperature, and well below its 140°C thermal shutdown threshold. The
+LDO is hot but working as designed. It also does not supply the MCU, so it cannot cause a
+VDD power-on reset. **The LDO is a red herring.** The buck is the suspect.
 
 ### Step 4 — Scope the Power Rails at the Moment of Reset
 
@@ -114,141 +99,114 @@ A digital oscilloscope with acquisition memory can be set to capture the event a
 roll back to the pre-trigger state.
 
 **Result:** At the moment of reset, the 3.3 V rail drops from 3.28 V to below 1.5 V
-over approximately 50 µs, then recovers to 3.28 V within 2 ms.
+over approximately 50 µs. The buck's power-good (PG) output goes low at the same instant,
+while the 12 V input stays solid. The rail comes back as the converter soft-starts,
+and the cycle repeats.
 
-The drop characteristic — fast collapse, fast recovery — is consistent with the LDO
-(or its input supply) briefly entering an over-temperature shutdown, toggling its
-thermal protection, and recovering.
+A collapse with the input still present, followed by a clean restart, is the signature of
+the regulator itself shutting down. The candidates are overcurrent (hiccup mode) and over-
+temperature.
 
-### Step 5 — Investigate the Buck Converter Thermal State
+### Step 5 — Estimate the Buck Converter Junction Temperature (First Pass)
 
-Return to the thermal camera. After 20 minutes of operation:
-
+The design-time current budget for the 3.3 V rail:
 ```
-MP2315S surface temperature: 89°C  (was 71°C at 30 seconds)
-```
-
-The buck converter has been heating for 20 minutes. At 89°C on the package surface,
-the junction temperature of the internal MOSFETs is higher.
-
-Calculate buck converter power dissipation:
-```
-Vin  = 5 V, Vout = 1.8 V (note: this buck is also supplying a 1.8 V rail elsewhere
-  on the board — also loaded)
-  Cross-reference with the schematic.
-
-Schematic review reveals: the MP2315S is set to Vout = 3.3 V (not 1.8 V), and the
-AP7331 LDO is a post-regulator from the 3.3 V buck output to a separate 3.3 V domain.
-The MCU is powered from the buck output directly (3.3 V), not from the LDO.
+MCU 120 mA + 2× MEMS sensors at 15 mA + 3× status LEDs at 10 mA = 180 mA
 ```
 
-**This changes the analysis significantly.** The LDO (AP7331) was a red herring in
-the thermal survey — its high temperature is expected given its power dissipation and
-package, but it is not supplying the MCU.
-
-The MCU VDD is powered from the buck converter output. The buck is the suspect.
-
-### Step 6 — Verify Buck Converter Thermal Performance
-
-MP2315S datasheet: Rθja = 45°C/W (SOIC-8-EP, assuming exposed pad soldered to copper)
-
 ```
-P_buck = (1 - efficiency) × P_out
-
-Vout = 3.3 V, Iout = 120 mA (MCU) + other loads...
-
-Check schematic more carefully: total 3.3 V load = 120 mA (MCU) + 2× MEMS sensors
-at 15 mA each + 3× status LEDs at 10 mA each = 120 + 30 + 30 = 180 mA
-
-P_out = 3.3 × 0.180 = 594 mW
-
-Typical efficiency of MP2315S at 5V → 3.3V, 180 mA: ~88%
-
-P_in  = P_out / η = 594 / 0.88 = 675 mW
-P_loss = P_in - P_out = 675 - 594 = 81 mW
-
-T_j_buck = T_amb + P_loss × Rθja = 25 + 0.081 × 45 = 28.6°C
+P_out  = 3.3 V × 0.180 A = 594 mW
+η      ≈ 85%  (read the curve for your operating point from the datasheet;
+                85% is assumed throughout this problem)
+P_in   = 594 / 0.85 = 699 mW
+P_loss = 699 - 594 = 105 mW
 ```
 
-This looks very cool — much cooler than the 89°C surface measurement.
-
-**Discrepancy:** The calculated junction temperature is only 3.6°C above ambient (28.6°C
-junction) but the measured surface is 89°C. This discrepancy is large enough to
-indicate that either:
-1. The exposed pad (EP) is not properly soldered to the thermal relief copper, so the
-   actual Rθja is much higher than 45°C/W
-2. There is another heat source in the vicinity being picked up by the camera
-
-### Step 7 — Verify Exposed Pad Solder Joint (X-Ray or Physical Inspection)
-
-X-ray the MP2315S. The X-ray image shows significant voiding in the exposed pad solder
-joint — approximately 60% void coverage. IPC-7093 recommends a maximum of 25% voiding
-for thermal-critical exposed pad devices.
+Thermal resistance: the LMR33630 datasheet quotes RθJA = 42.9°C/W for the DDA package,
+but on a 4-layer JEDEC board. TI states that this figure is for comparing packages, not
+for design. On this 2-layer, 1 oz board with limited copper around the part, take an
+effective RθJA of **60°C/W** (illustrative; measure it or simulate it for a real design).
 
 ```
-Impact of voiding on thermal resistance:
-  With 25% voiding: Rθja ≈ 45°C/W × 1.33 = 60°C/W
-  With 60% voiding: Rθja ≈ 45°C/W × 2.5  = 112°C/W
-
-T_j with voided pad = 25 + 0.081 × 112 = 34°C
-
-Still too low to explain 89°C surface temperature. Continue investigating.
+T_j = 25 + 0.105 × 60 = 31°C
 ```
 
-### Step 8 — Re-Examine Current Draw
+**Discrepancy:** The calculation predicts a junction barely above ambient, but the
+package top reads 160°C. Either the dissipation or the thermal resistance, or both,
+is far larger than assumed.
 
-Measure the actual 3.3 V current with a current probe during the failure window:
+### Step 6 — Re-Examine Current Draw
+
+Measure the actual 3.3 V current with a current probe during normal operation:
 
 ```
-Measured I_out: peaks at 920 mA during the failure event, vs. estimated 180 mA.
+Measured I_out: 1.38 A sustained, vs. estimated 180 mA.
 ```
 
-A 5× underestimate of the current draw. Re-examine the schematic:
+That is 7.7× the estimate. Re-examine the schematic:
 
-**Finding:** The 3.3 V rail also supplies a 128 × 64 OLED display via a boost converter.
-The boost converter is drawing 700 mA from 3.3 V when active (OLED at maximum brightness).
-This was not captured in the initial current estimate.
+**Finding:** The 3.3 V rail also supplies the display's LED backlight boost converter. At
+full brightness it draws 1.2 A from 3.3 V. It was not in the current budget.
 
 ```
 Revised:
-P_out = 3.3 V × 0.920 A = 3.04 W
-P_in  = 3.04 / 0.88 = 3.45 W
-P_loss = 3.45 - 3.04 = 410 mW
+P_out  = 3.3 V × 1.38 A = 4.55 W
+P_in   = 4.55 / 0.85 = 5.36 W
+P_loss = 5.36 - 4.55 = 0.80 W
 
-T_j = 25 + 0.410 × 112 (with voided pad) = 25 + 45.9 = 70.9°C  (junction)
-
-Still lower than 89°C surface. But the junction temperature of the IC MOSFET
-(not the package surface) may be higher. The thermal camera sees the package
-surface, not the silicon. With poor exposed pad bonding:
-
-  T_j_MOSFET = T_j_calc + (internal junction-to-case resistance × P_loss)
+T_j (pad soldered properly, Rθja = 60°C/W):
+  at 25°C:  25 + 0.80 × 60 = 73°C
+  at 44°C:  44 + 0.80 × 60 = 92°C
 ```
 
-After long thermal soak (20 minutes), the board temperature everywhere has risen
-due to the limited heat-sinking. The ambient within the board enclosure may have
-reached 40-50°C even though the test room is at 25°C. Recalculate:
+That is still well short of the 165°C thermal shutdown threshold, and far below what the
+camera shows. The current-budget error roughly doubles the junction temperature rise, but
+it does not explain the resets on its own. The thermal path must be worse than assumed.
+
+### Step 7 — Verify Exposed Pad Solder Joint (X-Ray or Physical Inspection)
+
+X-ray the LMR33630. The image shows significant voiding in the exposed pad solder joint,
+about 60% void coverage. IPC-7093 recommends a maximum of 25% voiding for thermally
+critical exposed-pad devices.
+
+Most of the heat leaves the HSOIC through its thermal pad: RθJC(bot) is 4.3°C/W, against
+54°C/W through the top (LMR33630 datasheet). As a first-order (pessimistic) model, scale
+the effective RθJA by the inverse of the soldered pad area:
 
 ```
-With ambient_effective = 45°C:
-T_j = 45 + 0.410 × 112 = 45 + 45.9 = 90.9°C
+With 25% voiding: Rθja ≈ 60°C/W / 0.75 = 80°C/W
+With 60% voiding: Rθja ≈ 60°C/W / 0.40 = 150°C/W
 
-This aligns with the 89°C surface measurement.
+T_j with the voided pad at P_loss = 0.80 W:
+  at 25°C (power-on):          25 + 0.80 × 150 = 146°C
+  at 44°C (after 18 minutes):  44 + 0.80 × 150 = 164°C
 ```
 
-The MP2315S is approaching its thermal shutdown threshold (typically 150°C). Given
-the 60% void coverage, any load increase or ambient temperature rise would push it
-into thermal shutdown.
+The LMR33630 shuts down when its junction reaches about 165°C and restarts at about 148°C
+(datasheet). It crosses the shutdown threshold when the enclosure air reaches
+165 − 0.80 × 150 = **44.5°C**, which is what the thermocouple read just before the failure.
+The camera agrees as well: the datasheet's junction-to-top parameter ψJT = 4.3°C/W puts the
+junction at 160 + 4.3 × 0.80 ≈ 163°C during the 18-minute reading. That is just below the trip point, and
+in line with the model's 164°C.
+
+After a shutdown the die cools only 17°C, to 148°C, before the converter restarts. With the
+enclosure still hot, it reaches 165°C again within seconds. That is the repeated-reset
+pattern in the problem statement.
 
 ### Root Cause Summary
 
-Three compounding issues:
-1. **Underloaded current estimate:** The OLED boost converter was not included in the
-   3.3 V current budget during design, causing the buck converter to be under-specified.
-2. **Exposed pad voiding (60%):** Poor solder paste deposition or aperture design in
-   the exposed pad stencil caused excessive voids, raising the thermal resistance
-   about 2.5×.
-3. **Thermal self-heating:** In a sealed or poorly ventilated enclosure, ambient
-   temperature rises over time, reducing the available thermal headroom.
+Three issues compound:
+1. **Incomplete current budget:** The display backlight boost converter was left out of the
+   3.3 V current budget. The buck dissipates 0.80 W instead of the 0.105 W designed for.
+2. **Exposed pad voiding (60%):** Poor solder paste deposition or stencil aperture design
+   left the thermal pad largely unsoldered, raising the effective thermal resistance about
+   2.5× (60 → 150°C/W).
+3. **Enclosure self-heating:** In the sealed enclosure the air rises about 20°C over
+   20 minutes, which removes the last of the thermal headroom.
+
+No single issue trips the shutdown. With the pad soldered properly, the junction stays at
+92°C even at the full 0.80 W and 44°C. With the pad voided but the original 0.105 W load,
+it would be only 44 + 0.105 × 150 = 60°C.
 
 ---
 
@@ -256,28 +214,21 @@ Three compounding issues:
 
 ### Calculating the Required Thermal Solution
 
-The MP2315S must not exceed T_j = 125°C at maximum ambient (specified as 40°C for
-this product).
+The LMR33630 junction must not exceed 125°C, the die limit TI gives for design, at the
+product's maximum ambient. The specified ambient is 40°C room temperature, but inside the
+enclosure the air is about 19°C warmer, so design for 60°C.
 
 ```
-Maximum allowable power dissipation at T_ambient = 40°C:
-  P_max = (T_j_max - T_ambient) / Rθja
-        = (125 - 40) / 45 = 1.89 W   (with properly soldered exposed pad)
+Maximum allowable power dissipation, T_enclosure = 60°C:
+  P_max = (T_j_max - T_enclosure) / Rθja
 
-Actual dissipation: 410 mW — well within the 1.89 W limit.
-
-But with voided pad (Rθja = 112°C/W):
-  P_max = (125 - 40) / 112 = 0.76 W
-  Actual 410 mW is within this, but with enclosure self-heating, effective
-  ambient rises further. At T_ambient = 60°C:
-  P_max = (125 - 60) / 112 = 0.58 W  — still above the 410 mW dissipation.
+  Properly soldered pad (60°C/W):   (125 - 60) / 60  = 1.08 W   vs 0.80 W actual → OK
+  Pad at the 25% void limit (80°C/W): (125 - 60) / 80  = 0.81 W   vs 0.80 W actual → no margin
+  60% voided pad (150°C/W):          (125 - 60) / 150 = 0.43 W   vs 0.80 W actual → fails
 ```
 
-On these numbers the dissipation stays within the limit even with the voided pad and
-a 60°C ambient, and the ~91°C junction estimate is well below the ~150°C thermal
-shutdown, so the calculation alone does not demonstrate a shutdown trip; the voided
-pad and the current-budget oversight erode the margin but the trip mechanism needs
-confirming by measurement.
+So the rework must bring voiding well under the 25% limit, and the next spin must lower
+the effective Rθja (thermal vias and more copper) to recover real margin.
 
 ### Stencil Design for Exposed Pad Components
 
@@ -291,7 +242,7 @@ Stencil aperture design for exposed pad:
   4. Typical segment: 0.8 mm × 0.8 mm square
   5. Maximum stencil thickness: 0.13 mm for small exposed pads
 
-Example for MP2315S (2 mm × 2 mm exposed pad):
+Example for a 2 mm × 2 mm exposed pad (illustrative):
   3×3 array of 0.55 mm × 0.55 mm squares
   Web width: 0.17 mm
   Coverage: 9 × (0.55²) / 4 = 68% of pad area
@@ -300,17 +251,17 @@ Example for MP2315S (2 mm × 2 mm exposed pad):
 ### Remedial Actions
 
 **Immediate (hardware rework):**
-1. Remove the MP2315S using a hot air rework station with a thermocouple profile
+1. Remove the LMR33630 using a hot air rework station with a thermocouple profile
 2. Clean the exposed pad with solder wick
 3. Apply fresh solder paste using a stencil with the segmented aperture design
-4. Re-flow the MP2315S using a controlled reflow profile
+4. Re-flow the LMR33630 using a controlled reflow profile
 5. X-ray verify void coverage < 25%
 
 **Schematic/design correction:**
-1. Update the current budget to include the OLED boost converter
-2. Verify the MP2315S current rating (3 A) is sufficient for the 920 mA peak load
-   — it is, but with only 3× margin. For the next spin, consider a 5 A rated device
-   for derating.
+1. Update the current budget to include the display backlight boost converter
+2. Verify the LMR33630 current rating (3 A) is sufficient for the 1.38 A load — it is,
+   with 2.2× margin. Current is not the limit here; dissipation is, so the fix is
+   thermal, not a bigger regulator.
 
 **PCB layout correction (for next spin):**
 1. Add thermal vias under the exposed pad to conduct heat to the inner copper or

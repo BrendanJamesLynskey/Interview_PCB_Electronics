@@ -14,9 +14,9 @@ correct. However, when firmware attempts to configure the PLL and switch to the 
 clock source, the microcontroller enters its clock fault handler (HSE timeout interrupt
 fires, CSS — clock security system — asserts a fault flag).
 
-Additionally, the RTC is initialised but immediately shows incorrect timekeeping —
-the seconds register advances at approximately 1.08 seconds per real second, confirmed
-with a stopwatch over 60 seconds.
+Additionally, the RTC keeps poor time. After 24 hours it is about 36 seconds ahead of an
+NTP-synchronised PC, and it gains the same amount each day. The 32.768 kHz crystal is an
+Abracon ABS07-32.768KHZ-7 (CL = 7 pF, ±20 ppm at 25 °C).
 
 **Task:** Diagnose both clock faults independently and identify the root cause of each.
 
@@ -144,38 +144,39 @@ GPIO at a measured rate with the scope.
 
 ### Fault 2: 32.768 kHz RTC Advancing Too Fast
 
-The RTC is advancing at approximately 1.08 seconds per real second (8% fast over a
-60-second test period).
+The RTC gains 36 s per day:
+
+```
+Error = 36 s / 86 400 s = 4.2 × 10⁻⁴ ≈ +417 ppm
+f_actual ≈ 32 768 Hz × (1 + 417 ppm) ≈ 32 781.7 Hz
+```
+
+This is about 20× the crystal's ±20 ppm tolerance. A stopwatch check would never find it,
+because over 60 seconds the RTC gains only 60 × 417 ppm = 0.025 s.
 
 #### Hypothesis Formation
 
-The RTC frequency error of +8% implies the 32.768 kHz crystal is oscillating at a
-frequency approximately 8% higher than nominal: approximately 35.4 kHz.
+A crystal running hundreds of ppm fast, not percent, points to the oscillator circuit
+rather than a wrong part:
+1. Load capacitance too small: the crystal is load-pulled to a higher frequency
+2. Wrong crystal CL variant fitted (e.g. a 12.5 pF crystal in a circuit designed for 7 pF
+   would run slow, not fast, so this does not fit)
+3. RTC prescaler or calibration register misconfigured (a firmware check)
+
+#### Step 1 — Measure the LSE Frequency Without Loading It
+
+Do not probe the 32.768 kHz crystal pins. A 10x probe adds 10-15 pF, which is more than
+the crystal's whole load capacitance. It would pull the frequency down, hiding the fault,
+or stop the oscillator altogether. Instead, route the RTC calibration output (512 Hz, the
+LSE divided by 64) to its pin and measure it with a frequency counter:
 
 ```
-f_actual = 32.768 kHz × 1.08 = 35.39 kHz
-Deviation = +8%
+Measured: 512.211 Hz  →  (512.211 / 512 − 1) = +412 ppm
+LSE      = 64 × 512.211 = 32 781.5 Hz
 ```
 
-A crystal running 8% fast is not a calibration or trim issue — that is a gross error.
-Possible causes:
-1. Wrong crystal value loaded — but no standard crystal value falls 8% above 32.768 kHz
-2. Load capacitors are much too small (crystal is load-pulled to a higher frequency)
-3. PCB routing issue causing a parasitic resonance at a different frequency
-
-#### Step 1 — Probe the 32.768 kHz Crystal
-
-```
-Probe setup:
-  - 10x passive probe with short ground spring
-  - Vertical: 500 mV/div
-  - Horizontal: 10 µs/div (32.768 kHz period ≈ 30.5 µs)
-  - Use oscilloscope frequency counter function
-```
-
-Probe the LSE_OUT pin. The oscilloscope confirms oscillation at 35.4 kHz.
-
-The crystal is oscillating above its nominal frequency.
+This agrees with the 24-hour drift. The prescaler and calibration register are at their
+defaults, which rules out hypothesis 3.
 
 #### Step 2 — Check Load Capacitors
 
@@ -195,16 +196,31 @@ CL_actual = (1 × 1) / (1 + 1) + 1 = 0.5 + 1 = 1.5 pF
   vs. required CL = 7 pF
 ```
 
-With only 1.5 pF of load capacitance instead of the required 7 pF, the operating
-point moves up toward the crystal's parallel (anti-)resonance fp, above the frequency
-it is calibrated for at rated CL, so the crystal runs fast.
+#### Step 3 — Confirm With the Pulling Calculation
 
-Caveat on magnitude: load pulling is bounded by fp - fs ≈ fs × C1 / (2 × C0) — for a
-32.768 kHz tuning-fork crystal (C1 of a few fF, C0 around 1-1.5 pF) that is roughly
-0.1-0.2%. Wrong load capacitors can therefore explain an error of hundreds of ppm,
-not 8%. An 8% error points to a different cause (wrong crystal, oscillation on another
-mode, or an RTC clock-source/prescaler error) and should be checked before accepting
-the load-capacitor explanation.
+A crystal's load-resonant frequency sits above its series resonance fs by:
+
+```
+Δf/f (CL) = C1 / (2 × (C0 + CL))
+```
+
+The ABS07 datasheet gives C0 = 0.9-1.2 pF. It does not list C1; Abracon's tuning-fork
+crystals are typically 1-4 fF (AB26T datasheet), so take C0 = 1.0 pF and C1 = 3 fF:
+
+```
+At rated CL = 7 pF:     3 fF / (2 × 8.0 pF)  = 188 ppm above fs  (the calibrated point)
+At actual CL = 1.5 pF:  3 fF / (2 × 2.5 pF)  = 600 ppm above fs
+Pulling = 600 − 188 = +412 ppm  →  32 781.5 Hz, +35.6 s/day
+```
+
+This matches the measurement. Over the datasheet ranges of C1 (1-4 fF) and C0
+(0.9-1.2 pF) the same fault gives +124 to +580 ppm, so a missing-load-capacitor fault
+always shows up as hundreds of ppm, never as percent. The upper bound is
+fp − fs = C1 / (2 × C0) ≈ 1500 ppm.
+
+The wrong capacitors also make the oscillator about ten times more sensitive to stray
+capacitance. The sensitivity is C1 / (2 × (C0 + CL)²): 240 ppm/pF at 1.5 pF, against
+23 ppm/pF at the rated 7 pF.
 
 #### Root Cause of Fault 2: Wrong Capacitor Value (12× Too Small)
 
@@ -218,15 +234,16 @@ a unit suffix is missing.
 
 Replace CX3 and CX4 with 12 pF C0G 0402 capacitors.
 
-After replacement: the RTC shows no measurable error over a 60-second stopwatch
-check. (A 60-second manual check resolves only about 0.1-1%; confirming the crystal's
-±20 ppm specification needs a longer comparison against a reference, as below.)
+After replacement: CL = (12 × 12) / (12 + 12) + 1 = 7 pF. The 512 Hz calibration output
+should now read within 512 Hz ± 20 ppm (±0.010 Hz), and the RTC should drift less than
+±1.7 s/day.
 
 For long-term accuracy, use the STM32H743's RTC calibration register to apply a
 trim value that compensates for the residual frequency offset:
 
 ```
-Available calibration range: ±512 ppm (in 0.954 ppm steps)
+Available calibration range: −487.1 ppm to +488.5 ppm (in 0.954 ppm steps;
+STM32 reference manual, RTC smooth digital calibration)
 Measurement method: compare RTC output to a GPS 1-PPS signal over 24 hours,
 then apply the correction factor to the CALR register
 ```
@@ -292,10 +309,12 @@ Correct CL: operating point at the specified load-resonant frequency (between fs
    frequency errors (too small or too large).** The direction of frequency error is:
    too much load capacitance → frequency too low; too little → frequency too high.
 
-3. **Gross frequency errors (> 0.1%) are a hardware issue, not a software trim issue.**
-   An 8% RTC frequency error cannot be fixed in software. Firmware calibration is for
-   fine adjustment of correctly operating hardware, not for correcting wrong component
-   values.
+3. **Errors far outside the crystal's tolerance are a hardware issue, not a software trim
+   issue.** The +412 ppm error happens to fit inside the RTC's −487 to +489 ppm trim
+   range, but it would use 84 % of that range. It would also leave an oscillator ten
+   times more sensitive to stray capacitance, humidity and temperature. Firmware
+   calibration is for fine adjustment of correctly operating hardware (tens of ppm), not
+   for correcting wrong component values.
 
 4. **Probing technique is critical for crystal measurements.** A standard 1x probe with
    a flying ground lead will typically kill a 32.768 kHz tuning fork crystal oscillation
