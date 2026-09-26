@@ -188,15 +188,17 @@ A delta-sigma ADC at 100 kSPS output rate with OSR = 256 oversamples internally 
   Implement as: three 2nd-order Sallen-Key stages + one 1st-order RC
 
   Pole frequencies and Q values (Butterworth 7th order):
-  Stage 1: f01 = fc × 0.976 = 9.76 kHz, Q1 = 0.556  (real pole scaled to complex)
-  Stage 2: f02 = fc × 0.879 = 8.79 kHz, Q2 = 0.802
-  Stage 3: f03 = fc × 0.649 = 6.49 kHz, Q3 = 2.247
-  Stage 4: 1st-order RC at fc × 1.0 = 10 kHz
+  Stage 1: f01 = fc = 10 kHz, Q1 = 0.555
+  Stage 2: f02 = fc = 10 kHz, Q2 = 0.802
+  Stage 3: f03 = fc = 10 kHz, Q3 = 2.247
+  Stage 4: 1st-order RC at fc = 10 kHz
 
-  (Standard Butterworth pole table values — from filter design handbook)
+  (Butterworth poles all lie on a circle of radius fc, so every stage has the
+  same natural frequency; only Q differs. Staggered stage frequencies belong to
+  Chebyshev or Bessel designs.)
 
 Component values for Stage 1 (example, Sallen-Key, equal component):
-  C = 1 nF (choose), R = 1/(2π × f01 × C) = 1/(2π × 9760 × 1e-9) = 16.3 kΩ → 16.2 kΩ E96
+  C = 1 nF (choose), R = 1/(2π × f01 × C) = 1/(2π × 10000 × 1e-9) = 15.9 kΩ → 15.8 kΩ E96
   Q adjustment: set buffer gain K = 3 - 1/Q1 = 3 - 1/0.556 = 1.20
   K = 1 + Rb/Ra → Rb/Ra = 0.20 → Ra = 10 kΩ, Rb = 2 kΩ
 ```
@@ -265,20 +267,24 @@ Op-amp noise referred to ADC input (after gain = 8):
 Sensor noise referred to ADC input:
   5 µV/√Hz × 8 = 40 µV/√Hz (at ADC input)
 
-The op-amp contributes only 0.4% of the noise variance — negligible.
+The op-amp noise is only 0.4% of the sensor noise amplitude (0.0016% of the variance) — negligible.
 The sensor noise dominates the noise budget, as intended.
 
 ADC quantisation noise referred to ADC input:
   For 16-bit, ±2.5 V: LSB = 5 V / 65536 = 76.3 µV
   Quantisation noise RMS = LSB / sqrt(12) = 22 µV
 
-Sensor noise at ADC input (1 Hz bandwidth): 40 µV/√Hz → 40 µV RMS (in 1 Hz BW)
-ADC quantisation noise: 22 µV RMS
-  Combined: sqrt(40² + 22²) = 45.7 µV RMS
+The 22 µV RMS quantisation noise is spread over the whole Nyquist band, so it
+must be compared with the sensor noise as a density, not against the sensor
+noise in a 1 Hz bandwidth:
+  Quantisation noise density at 100 kSPS: 22 µV / sqrt(50 kHz) = 0.098 µV/√Hz
+  (0.197 µV/√Hz at 25 kSPS)
+  Sensor noise density at ADC input: 40 µV/√Hz
 
-The ADC quantisation is 55% of the sensor noise in a 1 Hz bandwidth. This limits
-performance — a 24-bit ADC would contribute only 2.2 µV RMS quantisation noise,
-well below the 40 µV sensor noise floor.
+The 16-bit ADC's quantisation noise is about 400x (52 dB) below the sensor
+floor; even its full 90 dB-SNR noise (about 56 µV RMS, 0.25 µV/√Hz at 100 kSPS)
+is 160x below. The sensor, not the ADC, sets the noise floor — a 24-bit ADC
+would add nothing here.
 ```
 
 ---

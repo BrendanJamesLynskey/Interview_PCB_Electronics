@@ -110,7 +110,7 @@ If the routing must remain on a layer that references L4, add a 3.3 V copper pou
 
 **Recommended implementation (Option 1):**
 
-Route USB D+/D– on Layer 1 as a 90 Ω edge-coupled microstrip pair (W ≈ 0.175 mm, S ≈ 0.175 mm on 0.1 mm prepreg — calculated per IPC-2141A). The pair references L2 GND throughout its full length. The split between VCC_3V3_DIG and VCC_5V on L4 does not disrupt the reference.
+Route USB D+/D– on Layer 1 as a 90 Ω edge-coupled microstrip pair (W ≈ 0.15 mm, S ≈ 0.175 mm on 0.1 mm prepreg, Er 4.2 — IPC-2141A gives Z0 = 49.6 Ω and Zdiff = 90.3 Ω; W = 0.175 mm would give only 82 Ω). The pair references L2 GND throughout its full length. The split between VCC_3V3_DIG and VCC_5V on L4 does not disrupt the reference.
 
 ### Part C — SPI Bus Crossing VCC_3V3_DIG / VCC_3V3_ANA Split
 

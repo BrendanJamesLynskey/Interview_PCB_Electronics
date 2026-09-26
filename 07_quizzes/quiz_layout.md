@@ -53,12 +53,12 @@ D) The clock signal is slowed because the split increases the effective dielectr
 ### Question 3
 
 What is the recommended maximum stub length for a via on a 10 Gbit/s serial link with
-a rise time of approximately 35 ps? Assume signal propagation velocity is 180 ps/mm.
+a rise time of approximately 35 ps? Assume a propagation delay of about 7 ps/mm (180 ps/inch).
 
 A) 50 mm — the stub is small compared to the wavelength at 10 GHz.
 
-B) 0.6 mm — a stub longer than this creates a resonant notch within the signal's
-   bandwidth that causes significant attenuation and signal integrity degradation.
+B) 0.6 mm — keeping the stub this short keeps its resonant notch well above the
+   signal's bandwidth, avoiding attenuation and signal integrity degradation.
 
 C) 10 mm — the stub is only relevant when it exceeds one-quarter wavelength at the
    fundamental frequency.
@@ -370,14 +370,15 @@ response at:
 f_notch = v_prop / (4 × stub_length)
 ```
 
-For a stub length of 0.6 mm and a propagation velocity corresponding to 180 ps/mm:
+For a stub length of 0.6 mm and a propagation delay of about 7.1 ps/mm (180 ps/inch):
 
 ```
-f_notch = 1 / (4 × 0.6 mm × 180 ps/mm) = 1 / (432 ps) ≈ 2.3 GHz
+f_notch = 1 / (4 × 0.6 mm × 7.1 ps/mm) = 1 / (17 ps) ≈ 59 GHz
+Stub whose notch falls at 10 GHz: 1 / (4 × 10 GHz × 7.1 ps/mm) ≈ 3.5 mm
 ```
 
-This notch falls within the signal bandwidth (up to 10 GHz) and causes significant
-attenuation. Back-drilling (stub removal) is required for stubs longer than approximately
+A 0.6 mm stub keeps the notch far above the signal bandwidth (up to 10 GHz); stubs of a
+few millimetres bring it into the band and cause significant attenuation. Back-drilling (stub removal) is required for stubs longer than approximately
 0.25–0.5 mm at 10 Gbit/s.
 
 - A is incorrect: 50 mm would create a resonance well below 1 GHz — catastrophic.
@@ -551,19 +552,17 @@ target is approximately 45 Ω (for tightly coupled pairs where coupling coeffici
 is significant). Using a microstrip impedance calculator with H = 0.1 mm, Dk = 4.3,
 and T = 35 µm copper:
 
-- A 100 µm trace width gives a single-ended impedance of approximately 50 Ω. With
-  100 µm spacing (centre-to-centre 200 µm), the differential impedance is approximately
-  90 Ω due to the coupling correction.
-
-This is consistent with standard USB 3.0 design guidelines which commonly specify
-100 µm trace / 100 µm space on 0.1 mm dielectric for 90 Ω differential impedance.
+- A 100 µm trace width gives a single-ended impedance of approximately 60 Ω (IPC-2141
+  microstrip formula). With 100 µm spacing (centre-to-centre 200 µm), the coupled
+  differential impedance is approximately 98 Ω — the closest of the four options to
+  90 Ω; a slightly wider trace or tighter spacing would trim it to target.
 
 - B: 200 µm trace width at this dielectric height gives significantly lower impedance
-  (~35-40 Ω single-ended); differential would be around 65-70 Ω.
+  (~41 Ω single-ended); differential would be around 72 Ω.
 - C: 100 µm trace with 200 µm spacing has less coupling; differential impedance would
-  be closer to 95-100 Ω.
-- D: 50 µm trace width at 0.1 mm dielectric gives approximately 65 Ω single-ended,
-  with 100 µm spacing approximately 110-115 Ω differential — too high.
+  be about 112 Ω.
+- D: 50 µm trace width at 0.1 mm dielectric gives approximately 76 Ω single-ended,
+  with 100 µm spacing approximately 123 Ω differential — too high.
 
 ---
 
@@ -589,9 +588,10 @@ the antenna efficiency of those traces for the lowest-frequency content.
 **Question 13 — Answer: A**
 
 Parallel (receiver-end) termination is valid for this signal. The one-way flight time
-of a 100 mm trace at approximately 170 ps/mm is 17 ns. The signal risetime is 1 ns.
-Since the flight time (17 ns) is much greater than the risetime (1 ns), this trace
-behaves as a transmission line and requires termination. Parallel termination at the
+of a 100 mm trace at approximately 6.7 ps/mm (170 ps/inch) is about 0.67 ns. The signal
+risetime is 1 ns. The flight time is far more than the one-sixth of the risetime below
+which a trace can be treated as lumped, so this trace behaves as a transmission line
+and requires termination. Parallel termination at the
 receiver eliminates reflections completely (the received signal sees the matched
 termination). The trade-off is static power consumption of VCC/R = 3.3/50 = 66 mA
 per signal line when the signal is high.
@@ -603,10 +603,10 @@ per signal line when the signal is high.
 - C describes a Thévenin termination (AC-coupled end termination) which is valid, but
   the question asks about the simple parallel-to-ground configuration, which is the
   described circuit.
-- D is incorrect: the criterion for termination is that the round-trip flight time
-  (2 × 17 ns = 34 ns) exceeds the signal risetime (1 ns); termination is required when
-  this condition is met (i.e., when round-trip flight > 2-3× the risetime). 34 ns >>
-  1 ns, so termination is definitely required.
+- D is incorrect: a flight time merely less than the risetime does not make the trace
+  lumped; that needs roughly less than one-sixth of the risetime (≈0.17 ns here). The
+  round-trip flight time (2 × 0.67 ns ≈ 1.3 ns) exceeds the 1 ns risetime, so
+  reflections are not hidden within the edge and termination is required.
 
 ---
 

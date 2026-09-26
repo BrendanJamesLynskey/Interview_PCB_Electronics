@@ -17,7 +17,7 @@ PCIe Gen 3 electrical specifications:
 - Differential impedance: 85 Ω ± 15% (per PCIe base spec 3.0, Table 4-11)
 - Maximum intra-pair skew: 0.1 UI at 8 GT/s = 12.5 ps
 - Maximum inter-pair skew (TX-to-RX): 20 ns
-- Maximum insertion loss: 10 dB at 4 GHz (Nyquist for 8 GT/s NRZ)
+- End-to-end channel insertion loss budget: about 22 dB at 4 GHz (Nyquist for 8 GT/s NRZ)
 
 The SoC TX pair exits at pad coordinates (5, 14) and (5, 15) in mm. The M.2 connector RX pads are at (85, 14) and (85, 15) mm.
 

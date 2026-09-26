@@ -96,16 +96,15 @@ For Chebyshev order estimation:
 
 A 15th-order filter is still impractical for a narrow guard band. This confirms the conclusion from Problem 02: a 25 kSPS sample rate with a 10 kHz bandwidth requires an unrealistically high-order filter. The practical solution is to either oversample at 100 kSPS (reducing the filter order to ~7) or use a delta-sigma ADC.
 
-**Revised design: 7th-order Chebyshev at 100 kSPS (oversampled):**
+**Revised design: Chebyshev at 100 kSPS (oversampled):**
 
 ```
 With 100 kSPS: Nyquist = 50 kHz
 Selectivity: k = 50 / 10 = 5
 
-N ≥ cosh⁻¹(11397 / 0.3493) / cosh⁻¹(5)
-  = cosh⁻¹(32623) / cosh⁻¹(5)
-  = 10.78 / 2.29
-  = 4.7 → N = 5 (5th-order Chebyshev gives > 72 dB at 50 kHz with 0.5 dB ripple)
+N ≥ cosh⁻¹(11397) / cosh⁻¹(5)
+  = 10.03 / 2.29
+  = 4.4 → N = 5 (5th-order Chebyshev gives 84 dB at 50 kHz with 0.5 dB ripple)
 ```
 
 **5th-order Chebyshev active filter implementation:**
@@ -113,34 +112,31 @@ N ≥ cosh⁻¹(11397 / 0.3493) / cosh⁻¹(5)
 ```
 Structure: two 2nd-order Sallen-Key stages + one 1st-order RC
 
-Pole frequencies and Q values (0.5 dB ripple Chebyshev, 5th order, fc = 10 kHz):
-  Stage 1 (2nd order): f01 = 10.86 kHz, Q1 = 0.707  (from pole tables)
-  Stage 2 (2nd order): f02 = 8.02 kHz, Q2 = 1.777
-  Stage 3 (1st order): f03 = 6.64 kHz (single pole RC)
-  (Values from Williams & Taylor, "Electronic Filter Design Handbook", 4th ed.)
+Pole frequencies and Q values (0.5 dB ripple Chebyshev, 5th order, passband edge 10 kHz):
+  Stage 1 (2nd order): f01 = 1.018 × 10 kHz = 10.18 kHz, Q1 = 4.545
+  Stage 2 (2nd order): f02 = 0.690 × 10 kHz = 6.91 kHz, Q2 = 1.178
+  Stage 3 (1st order): f03 = 0.362 × 10 kHz = 3.62 kHz (single pole RC)
+  (Computed from the Chebyshev pole locations; the same values appear in
+  standard filter pole tables.)
 
-Component values for Stage 2 (highest Q, most critical):
-  Target: f0 = 8.02 kHz, Q = 1.777
+Component values for Stage 1 (highest Q, most critical):
+  Target: f0 = 10.18 kHz, Q = 4.545
 
-  Using Sallen-Key with equal R: C1 = C, C2 = C×m, R1 = R2 = R
-  Q = sqrt(m) / (3 - K), f0 = 1 / (2π × R × C × sqrt(m))
+  Equal-component Sallen-Key (R1 = R2 = R, C1 = C2 = C) with gain K:
+    Q = 1 / (3 - K), f0 = 1 / (2π × R × C)
 
-  Choose C = 10 nF, m = Q² × (3-K)²...
-  Simplified design (using design tables for Sallen-Key):
-    Choose C1 = 10 nF, C2 = 10 nF (equal), then adjust R for each section.
+  For Q = 4.545: K = 3 - 1/Q = 3 - 0.220 = 2.780
+    Buffer gain K = 2.780 → non-inverting buffer with Rf/Ri = K - 1 = 1.780
+    Select Ri = 10 kΩ, Rf = 17.8 kΩ E96
 
-  For equal-C Sallen-Key with unity gain:
-    Q = 0.5 (only) → not suitable for Q = 1.777.
+    R = 1 / (2π × f0 × C) with C = 10 nF:
+    R = 1 / (2π × 10180 × 10e-9) = 1564 Ω → use 1.58 kΩ E96
 
-  For Q = 1.777 with Sallen-Key gain K = 3 - 1/Q = 3 - 0.563 = 2.437:
-    Buffer gain K = 2.437 → non-inverting buffer with Rf/Ri = K-1 = 1.437
-    Select Ri = 10 kΩ, Rf = 14.37 kΩ → use 14.3 kΩ E96
+    Actual f0 with R = 1.58 kΩ: f0 = 1/(2π × 1580 × 10e-9) = 10.07 kHz (1.1% low)
 
-    R = 1 / (2π × f0 × C × sqrt(C1/C2)) — for equal C:
-    R = 1 / (2π × 8020 × 10e-9) = 1987 Ω → use 2.0 kΩ E96
-
-    Actual f0 with R = 2.0 kΩ: f0 = 1/(2π × 2000 × 10e-9) = 7.96 kHz (0.7% error — acceptable)
-```
+  With K this close to 3, Q is very sensitive to the gain resistors
+  (dQ/Q = Q × dK), so use 0.1% resistors for Ri and Rf — or use a unity-gain
+  Sallen-Key with unequal capacitors, or a multiple-feedback stage, for this section.
 
 ### Part B — High-Pass Filter Design
 
@@ -155,7 +151,7 @@ Below 1 Hz: attenuation = 20 × log(f/fc) = 20 × log(1/10) = -20 dB
   At 1 Hz: -20 dB ✓ (meets the > 20 dB requirement at 1 Hz)
 
 Passband flatness:
-  At 10 kHz: attenuation = 20 × log(10000/10) = 60 dB gain (high-pass → passes 10 kHz)
+  At 10 kHz: f/fc = 1000, so the loss is 10 × log(1 + 1/1000²) ≈ 4×10⁻⁶ dB.
   The high-pass filter has negligible effect above its corner (< 0.01 dB at 10 kHz).
 ```
 
@@ -188,8 +184,8 @@ The 2nd-order design is preferred because:
 Concern: the 10 µF capacitors required for a 10 Hz cutoff are large.
   Use film capacitors (polyester or polypropylene) for stability and low leakage.
   Electrolytic capacitors have large tolerance (±20%) and degrade with age.
-  With 20% capacitor tolerance, fc varies ±20% = 8-12 Hz (within the ±10% spec:
-  9-11 Hz). Tighter spec requires 5% or 1% film capacitors.
+  With 20% capacitor tolerance, fc varies ±20% = 8-12 Hz — outside the ±10% spec
+  (9-11 Hz). 5% or 1% film capacitors are required.
 ```
 
 ### Part C — 60 Hz Twin-T Notch Filter
@@ -302,12 +298,13 @@ Minimum slew rate:
   Use op-amp with SR ≥ 1 V/µs (10× margin). Example: OPA350 (SR = 22 V/µs), LMC6482 (SR = 10 V/µs).
 
 Minimum GBW:
-  For the highest-Q stage (Q = 1.777, f0 = 8 kHz, noise gain = K = 2.437):
-  GBW ≥ 50 × Q² × f0 = 50 × 3.16 × 8000 = 1.264 MHz
+  For the highest-Q stage (Q = 4.545, f0 = 10.18 kHz, noise gain = K = 2.78):
+  GBW ≥ 50 × Q² × f0 = 50 × 20.7 × 10180 = 10.5 MHz
   (Rule: GBW ≥ 50 × Q² × f0 for stable Sallen-Key with gain)
 
-  Use op-amp with GBW ≥ 10 MHz for 5× margin. Example: LMC6482 (GBW = 1.5 MHz) — borderline.
-  Better: OPA2134 (GBW = 8 MHz, SR = 20 V/µs) for the critical high-Q stage.
+  Use an op-amp with GBW of several tens of MHz for margin. LMC6482 (GBW = 1.5 MHz)
+  and OPA2134 (GBW = 8 MHz) are both too slow for this stage; they remain fine
+  for the Q = 1.18 and first-order stages.
 ```
 
 **Single-supply considerations:**
@@ -340,7 +337,7 @@ ADC reference: 3.3 V single-supply ADC with external VREF = 3.3 V or internal 2.
 
 Filter design problems test the depth of analogue knowledge at hardware engineering interviews. The key discriminators:
 
-1. **Order calculation:** Many candidates say "use a low-pass filter" without quantifying the order or recognising the transition band problem. Calculating that a 1.25:1 transition requires 15th-order Butterworth (and then proposing oversampling as the fix) demonstrates rigour.
+1. **Order calculation:** Many candidates say "use a low-pass filter" without quantifying the order or recognising the transition band problem. Calculating that a 1.25:1 transition requires a 15th-order Chebyshev (about a 42nd-order Butterworth) (and then proposing oversampling as the fix) demonstrates rigour.
 
 2. **Twin-T sensitivity:** Knowing that a twin-T notch is highly sensitive to component matching, and proposing matched components or a digital alternative, is a senior-level answer.
 

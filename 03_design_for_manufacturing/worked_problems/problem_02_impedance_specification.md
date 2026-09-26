@@ -85,10 +85,10 @@ This is above the 4 mil minimum trace width — fabrication is feasible at stand
 
 For a differential pair, the odd-mode impedance (half the differential impedance) must be 50 Ω. The coupling between traces slightly reduces the single-ended impedance compared to an isolated trace, so the trace width is slightly narrower than Part A for the same impedance target.
 
-A simplified rule of thumb for edge-coupled microstrip differential impedance:
+The IPC-2141 approximation for edge-coupled microstrip differential impedance:
 
 ```
-Zdiff ≈ 2 * Z0_single * (1 - 0.347 * exp(-2.9 * S/H))
+Zdiff ≈ 2 * Z0_single * (1 - 0.48 * exp(-0.96 * S/H))
 
 Where:
   S = gap (space) between the two traces
@@ -96,46 +96,44 @@ Where:
   Z0_single = single-ended impedance of one trace (isolated)
 ```
 
-Working backward: to achieve Zdiff = 100 Ω with the traces slightly coupling:
+(The form 1 - 0.347 * exp(-2.9 * S/H) is a stripline-type coupling term and badly underestimates microstrip coupling: with it, W = S = 0.15 mm appears to give 99.6 Ω, but the microstrip formula gives only 87.9 Ω.)
 
-Start with W = 0.15 mm (giving Z0_single ≈ 50 Ω in isolation), and test with S = 0.15 mm gap:
+Because coupling pulls Zdiff below 2 × Z0_single, each trace must be narrower than the 50 Ω trace of Part A. Try W = 0.12 mm, S = 0.15 mm:
 
 ```
-Zdiff = 2 * 50 * (1 - 0.347 * exp(-2.9 * 0.15/0.1))
-      = 100 * (1 - 0.347 * exp(-4.35))
-      = 100 * (1 - 0.347 * 0.0129)
-      = 100 * (1 - 0.00447)
-      = 99.6 Ω ≈ 100 Ω
+Z0_single = 36.7 * ln(0.598 / (0.8 * 0.12 + 0.035)) = 36.7 * ln(4.565) = 55.8 Ω
+
+Zdiff = 2 * 55.8 * (1 - 0.48 * exp(-0.96 * 0.15/0.1))
+      = 111.6 * (1 - 0.48 * exp(-1.44))
+      = 111.6 * (1 - 0.48 * 0.237)
+      = 111.6 * 0.886
+      = 98.9 Ω ≈ 100 Ω
 ```
 
-**Result: W = 0.15 mm trace, S = 0.15 mm gap for 100 Ω differential on Layer 1**
+**Result: W = 0.12 mm trace, S = 0.15 mm gap for 100 Ω differential on Layer 1**
 
-Converting to mils: 0.15 mm = 5.9 mil ≈ 6 mil
+Converting to mils: 0.12 mm = 4.7 mil, 0.15 mm = 5.9 mil
 
-This is above the 4/4 mil minimum — feasible at standard process.
+This is above the 4/4 mil minimum — feasible at standard process (confirm with the fab's field solver).
 
 **USB 3.2 — 90 Ω differential:**
 
-USB 3.2 specifies 90 Ω differential. Repeating with a slightly wider trace or narrower gap to reduce impedance:
-
-Try W = 0.175 mm, S = 0.175 mm:
+USB 3.2 specifies 90 Ω differential. A wider trace lowers the impedance. Try W = 0.15 mm, S = 0.175 mm:
 
 ```
-Z0_single with W=0.175:
-  Z0 = 36.7 * ln(5.98 * 0.1 / (0.8 * 0.175 + 0.035))
-     = 36.7 * ln(0.598 / 0.175)
-     = 36.7 * ln(3.42)
-     = 36.7 * 1.23
-     = 45.1 Ω
+Z0_single with W = 0.15:
+  Z0 = 36.7 * ln(0.598 / (0.8 * 0.15 + 0.035))
+     = 36.7 * ln(3.858)
+     = 49.6 Ω
 
-Zdiff = 2 * 45.1 * (1 - 0.347 * exp(-2.9 * 0.175/0.1))
-      = 90.2 * (1 - 0.347 * exp(-5.075))
-      = 90.2 * (1 - 0.347 * 0.00626)
-      = 90.2 * 0.9978
-      ≈ 90.0 Ω
+Zdiff = 2 * 49.6 * (1 - 0.48 * exp(-0.96 * 0.175/0.1))
+      = 99.2 * (1 - 0.48 * exp(-1.68))
+      = 99.2 * (1 - 0.48 * 0.186)
+      = 99.2 * 0.911
+      ≈ 90.3 Ω
 ```
 
-**Result: W = 0.175 mm, S = 0.175 mm for 90 Ω differential on Layer 1**
+**Result: W = 0.15 mm, S = 0.175 mm for 90 Ω differential on Layer 1** (W = S = 0.175 mm would give only 82 Ω)
 
 ### Part C — Layer 3 Stripline, 50 Ω Single-Ended
 
@@ -205,10 +203,10 @@ No. | Layer | Type         | Target (Ω) | Tol.  | Trace W | Gap    | Reference 
 ---------------------------------------------------------------------
 1   | L1    | Microstrip   | 50 Ω SE    | ±10%  | 0.15 mm | —      | L2 (GND)
     |       |              |            |       | (6 mil) |        |
-2   | L1    | Diff. Pair   | 100 Ω DIFF | ±10%  | 0.15 mm | 0.15 mm| L2 (GND)
-    |       | (PCIe)       |            |       | (6 mil) | (6 mil)|
-3   | L1    | Diff. Pair   | 90 Ω DIFF  | ±10%  | 0.175 mm| 0.175mm| L2 (GND)
-    |       | (USB 3.2)    |            |       | (7 mil) | (7 mil)|
+2   | L1    | Diff. Pair   | 100 Ω DIFF | ±10%  | 0.12 mm | 0.15 mm| L2 (GND)
+    |       | (PCIe)       |            |       | (4.7 mil)| (6 mil)|
+3   | L1    | Diff. Pair   | 90 Ω DIFF  | ±10%  | 0.15 mm | 0.175mm| L2 (GND)
+    |       | (USB 3.2)    |            |       | (6 mil) | (7 mil)|
 4   | L3    | Stripline    | 50 Ω SE    | ±10%  | 0.25 mm | —      | L2 (GND), L4 (PWR)
     |       |              |            |       | (10 mil)|        |
 ---------------------------------------------------------------------

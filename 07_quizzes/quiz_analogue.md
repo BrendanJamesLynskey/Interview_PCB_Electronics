@@ -133,7 +133,7 @@ B) Yes — 12-bit resolution always provides 0.01% accuracy because accuracy and
 C) No — a 12-bit DAC has only 12 discrete levels, which is insufficient for precision
    control applications.
 
-D) Yes — 12-bit resolution provides 1 LSB = 3.3 V / 4096 = 0.806 mV. The 0.01%
+D) No — 12-bit resolution provides 1 LSB = 3.3 V / 4096 = 0.806 mV. The 0.01%
    accuracy requirement corresponds to 3.3 V × 0.0001 = 0.33 mV, which is less than
    1 LSB. The DAC resolution is inadequate regardless of converter quality.
 
@@ -146,9 +146,9 @@ The thermocouple output requires amplification before the ADC input. The ADC has
 internal reference of 2.048 V and an input range of ±2.048 V. The instrumentation
 amplifier is set to a gain of 200. What is the measurement resolution in °C?
 
-A) Resolution = 2.048 V / (200 × 2^24) / (5 µV/°C) ≈ 0.24 m°C per LSB.
+A) Resolution = 2.048 V / (200 × 2^24) / (5 µV/°C) ≈ 0.12 m°C per LSB.
 
-B) Resolution = (2.048 V / 2^24) / 200 / (5 µV/°C) = 0.24 m°C per LSB.
+B) Resolution = (2 × 2.048 V / 2^24) / 200 / (5 µV/°C) = 0.24 m°C per LSB.
 
 C) Resolution = 2.048 V / 2^24 × 200 / (5 µV/°C) ≈ 4.88°C per LSB.
 
@@ -512,9 +512,8 @@ Thermocouple sensitivity = 5 µV/°C, so:
 This is the theoretical quantisation-limited resolution. Actual resolution may be
 degraded by noise in the INA, the ADC, and the thermocouple cold-junction compensation.
 
-- A and B arrive at the same numerical answer (0.24 m°C/LSB) through slightly different
-  but equivalent calculation paths. Both are correct. B more explicitly shows the step
-  from ADC LSB through gain to temperature.
+- A is incorrect: it uses 2.048 V instead of the 4.096 V span of the ±2.048 V input
+  range, giving 0.12 m°C — half the true LSB.
 - C is incorrect: multiplying by gain rather than dividing gives the wrong sign of the
   effect; gain of 200 improves resolution by 200×, not worsens it.
 - D is not wrong in principle but is an incomplete calculation.
@@ -615,9 +614,8 @@ bandwidth (to have excess samples available for averaging).
   per factor of two in sample rate. Oversampling by 4× (not 2×) gives 6 dB improvement.
   The phrasing "3 dB per factor of two" is the correct incremental rate, but the question
   asks for a 6 dB improvement, requiring 4× oversampling.
-- C is correct that reducing bandwidth improves the noise floor (10 dB for 10× bandwidth
-  reduction), but the question asks about averaging ADC samples, not digital filtering.
-  Both approaches achieve noise floor improvement but through different mechanisms.
+- C is incorrect: reducing bandwidth 10× does improve a white noise floor by 10 dB, but
+  a 100 Hz low-pass filter would also remove the 1 kHz signal being measured.
 - D is incorrect: increasing the reference voltage increases the full-scale range and
   reduces the signal-to-full-scale ratio if the signal amplitude is unchanged — this
   worsens the SNR for a fixed-amplitude signal.
@@ -632,7 +630,7 @@ and the cable resistance, so it measures RRTD + RL = 100 + 2 = 102 Ω. The PT100
 temperature coefficient is approximately 0.385 Ω/°C near 0°C, giving:
 
 ```
-Apparent temperature = 102 / 0.385 ≈ 264.9°C  (instead of 259.7°C for 100 Ω alone)
+Apparent temperature ≈ (102 - 100) / 0.385 ≈ 5.2°C  (instead of 0°C for 100 Ω alone)
 Error = 2 Ω / 0.385 Ω per °C = 5.19°C ≈ 5.2°C
 ```
 
@@ -731,9 +729,8 @@ I_apparent = 10.05 V / (100 V/A gain) = 10.05 A (error of +50 mA)
 This confirms option A and B give the same result (50 mA), but B shows the full
 calculation correctly. The error is 0.5% of 10 A = 50 mA.
 
-- C is incorrect: the calculation 0.005 Ω × 10 A = 0.05 V is the voltage error, not
-  5 V. The amplifier gain of 100 gives 0.05 V × 100 = 5 V error only if the resistance
-  change were 10× larger; the arithmetic in C is incorrect.
+- C is incorrect: 5000 ppm of 10 mΩ is 0.05 mΩ, not 0.005 Ω. The true sense-voltage
+  error is 10 A × 0.05 mΩ = 0.5 mV, i.e. 50 mV at the amplifier output, not 5 V.
 - D is incorrect: the temperature coefficient applies whenever the temperature deviates
   from the calibration temperature, regardless of the rated operating temperature.
 

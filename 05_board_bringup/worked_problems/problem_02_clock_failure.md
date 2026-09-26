@@ -195,9 +195,16 @@ CL_actual = (1 × 1) / (1 + 1) + 1 = 0.5 + 1 = 1.5 pF
   vs. required CL = 7 pF
 ```
 
-With only 1.5 pF of load capacitance instead of the required 7 pF, the crystal is
-load-pulled toward its series resonance frequency. The series resonant frequency is
-slightly higher than the parallel resonance at rated CL, so the crystal runs fast.
+With only 1.5 pF of load capacitance instead of the required 7 pF, the operating
+point moves up toward the crystal's parallel (anti-)resonance fp, above the frequency
+it is calibrated for at rated CL, so the crystal runs fast.
+
+Caveat on magnitude: load pulling is bounded by fp - fs ≈ fs × C1 / (2 × C0) — for a
+32.768 kHz tuning-fork crystal (C1 of a few fF, C0 around 1-1.5 pF) that is roughly
+0.1-0.2%. Wrong load capacitors can therefore explain an error of hundreds of ppm,
+not 8%. An 8% error points to a different cause (wrong crystal, oscillation on another
+mode, or an RTC clock-source/prescaler error) and should be checked before accepting
+the load-capacitor explanation.
 
 #### Root Cause of Fault 2: Wrong Capacitor Value (12× Too Small)
 
@@ -211,8 +218,9 @@ a unit suffix is missing.
 
 Replace CX3 and CX4 with 12 pF C0G 0402 capacitors.
 
-After replacement: RTC measured at 1.001 seconds per real second over 60 seconds
-(within the crystal's ±20 ppm specification at room temperature).
+After replacement: the RTC shows no measurable error over a 60-second stopwatch
+check. (A 60-second manual check resolves only about 0.1-1%; confirming the crystal's
+±20 ppm specification needs a longer comparison against a reference, as below.)
 
 For long-term accuracy, use the STM32H743's RTC calibration register to apply a
 trim value that compensates for the residual frequency offset:
@@ -267,9 +275,9 @@ fs (series resonance): crystal impedance is minimum (purely resistive)
 fp (parallel resonance, anti-resonance): crystal impedance is maximum
                        → operating point with correct CL is between fs and fp
 
-With too little load capacitance: operating point moves toward fs → frequency increases
-With too much load capacitance: operating point moves toward fp → frequency decreases
-Correct CL: operating point at the specified parallel resonant frequency
+With too little load capacitance: operating point moves toward fp → frequency increases
+With too much load capacitance: operating point moves toward fs → frequency decreases
+Correct CL: operating point at the specified load-resonant frequency (between fs and fp)
 ```
 
 ---
@@ -310,8 +318,9 @@ Correct CL: operating point at the specified parallel resonant frequency
   crystal. Verify load capacitors first — they are the most common cause.
 
 - "How does load capacitance affect crystal frequency?"
-  Crystal series resonant frequency is pulled toward parallel resonance by load
-  capacitance. Higher load → lower frequency. Lower load → higher frequency. Operating
+  Adding load capacitance pulls the operating frequency down from fp toward fs.
+  Higher load → lower frequency. Lower load → higher frequency (by at most
+  about C1/(2 C0), i.e. hundreds to a few thousand ppm). Operating
   outside the specified load range causes both frequency error and potential instability.
 
 - "What is the difference between series and parallel resonance in a crystal?"

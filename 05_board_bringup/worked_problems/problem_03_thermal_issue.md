@@ -6,6 +6,9 @@ A fully functional board has passed bring-up and is running a representative wor
 The design includes:
 - A 5 V input, 1.8 V output synchronous buck converter rated at 3 A continuous
   (Monolithic Power Systems MP2315S, 8-pin SOIC-8-EP package)
+  *(Note: the real MP2315S is supplied in a TSOT23-8 package with no exposed pad,
+  θJA ≈ 100°C/W per its datasheet; treat the exposed-pad part in this problem as
+  hypothetical.)*
 - A 3.3 V/500 mA LDO (Diodes Inc. AP7331) in a SOT-23-5 package
 - An STM32F4 microcontroller running at 168 MHz, full load (100% CPU utilisation)
 - The PCB is a two-layer design with 1 oz copper on both sides
@@ -169,7 +172,7 @@ T_j_buck = T_amb + P_loss × Rθja = 25 + 0.081 × 45 = 28.6°C
 
 This looks very cool — much cooler than the 89°C surface measurement.
 
-**Discrepancy:** The calculated junction temperature is 28.6°C above ambient (53.6°C
+**Discrepancy:** The calculated junction temperature is only 3.6°C above ambient (28.6°C
 junction) but the measured surface is 89°C. This discrepancy is large enough to
 indicate that either:
 1. The exposed pad (EP) is not properly soldered to the thermal relief copper, so the
@@ -187,7 +190,7 @@ Impact of voiding on thermal resistance:
   With 25% voiding: Rθja ≈ 45°C/W × 1.33 = 60°C/W
   With 60% voiding: Rθja ≈ 45°C/W × 2.5  = 112°C/W
 
-T_j with voided pad = 25 + 0.081 × 112 = 34°C   ... still only 59°C
+T_j with voided pad = 25 + 0.081 × 112 = 34°C
 
 Still too low to explain 89°C surface temperature. Continue investigating.
 ```
@@ -242,7 +245,8 @@ Three compounding issues:
 1. **Underloaded current estimate:** The OLED boost converter was not included in the
    3.3 V current budget during design, causing the buck converter to be under-specified.
 2. **Exposed pad voiding (60%):** Poor solder paste deposition or aperture design in
-   the exposed pad stencil caused excessive voids, tripling the thermal resistance.
+   the exposed pad stencil caused excessive voids, raising the thermal resistance
+   about 2.5×.
 3. **Thermal self-heating:** In a sealed or poorly ventilated enclosure, ambient
    temperature rises over time, reducing the available thermal headroom.
 
@@ -266,11 +270,14 @@ But with voided pad (Rθja = 112°C/W):
   P_max = (125 - 40) / 112 = 0.76 W
   Actual 410 mW is within this, but with enclosure self-heating, effective
   ambient rises further. At T_ambient = 60°C:
-  P_max = (125 - 60) / 112 = 0.58 W  — below the 410 mW dissipation.
+  P_max = (125 - 60) / 112 = 0.58 W  — still above the 410 mW dissipation.
 ```
 
-This confirms the voided pad is the primary hardware fault. The secondary issue is
-the current budget oversight.
+On these numbers the dissipation stays within the limit even with the voided pad and
+a 60°C ambient, and the ~91°C junction estimate is well below the ~150°C thermal
+shutdown, so the calculation alone does not demonstrate a shutdown trip; the voided
+pad and the current-budget oversight erode the margin but the trip mechanism needs
+confirming by measurement.
 
 ### Stencil Design for Exposed Pad Components
 

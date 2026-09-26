@@ -59,7 +59,7 @@ design with only input capacitors.
 ### Step 2 — Identify the Shorted Rail by Isolation
 
 The board has three rails downstream of the 12 V input: 5 V buck output, 3.3 V LDO
-output, 1.8 V LDO output. The 12 V input feeds only the buck converter's power stage.
+output, 1.8 V buck output. The 12 V input feeds only the buck converter's power stage.
 
 **Method: successive isolation using 0 Ω resistors or physical component removal.**
 
@@ -127,7 +127,7 @@ a healthy rail dominated by the input capacitors and MOSFET gate pulldown resist
   voltage by the derating margin (typically 1.5-2×).
 
 In this case, review the BOM: the input capacitor was specified as 100 nF, 10 V, X7R.
-On a 12 V rail, the 10 V capacitor is over-rated — the applied voltage exceeds the
+On a 12 V rail, the 10 V capacitor is under-rated — the applied voltage exceeds the
 rating. This is a design error. The correct part is 100 nF, 25 V (or higher), X7R.
 
 ### Step 5 — Replace the Component and Retest
@@ -157,18 +157,18 @@ An X7R MLCC internal short circuit fails to low (but non-zero) resistance, typic
 behaviour:
 
 ```
-V_supply × (R_fault / (R_fault + R_supply_internal)) = V_measured
+Once current-limiting, a bench supply behaves as a constant-current source:
+  V_output = I_limit × R_fault
 
-12 V × (8 / (8 + 8)) ≈ 6 V  — doesn't match the observed 2 V
-
-A more accurate model includes the current-limiting behaviour:
-At 500 mA limit, V_output = V_ocv - I_limit × R_supply_internal
-If R_supply_internal = 20 Ω (aggressive current limit): V = 12 - 0.5×20 = 2 V ✓
+For the 8 Ω fault measured cold: V = 0.5 A × 8 Ω = 4.0 V
+The observed 2 V implies R = 2 V / 0.5 A = 4 Ω at the operating point.
 ```
 
-The bench supply, once current-limiting, folds back its output voltage as it attempts
-to maintain I_out = I_limit into a resistive load. This is entirely consistent with
-the observation of V = 2 V at the 500 mA limit.
+The supply is not dividing 12 V across an internal resistance; it simply holds the
+current at 500 mA and the voltage settles wherever the load puts it. The 2 V reading
+means the fault presents about 4 Ω while conducting — lower than the 8 Ω cold
+reading, which is consistent with a failed MLCC whose resistance falls as it heats
+(or with a supply that uses foldback current limiting).
 
 ### Why the Voltage Did Not Collapse to Zero
 

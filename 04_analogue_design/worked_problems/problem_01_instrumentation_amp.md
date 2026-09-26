@@ -65,7 +65,7 @@ Actual gain with 196 Ω: G = 1 + 49,400/196 = 1 + 252 = 253
 Output at full scale: ±10 mV × 253 = ±2.53 V — slightly over the 2.5 V target.
 ```
 
-**Trimming:** Use a 200 Ω fixed resistor in series with a 50 Ω trimpot at RG. Adjust the trimpot at calibration to set the exact gain. Alternatively, accept the 1.2% gain error and correct it in firmware via a gain calibration coefficient.
+**Trimming:** Use a 180 Ω fixed resistor in series with a 50 Ω trimpot at RG (180-230 Ω covers the required 198.4 Ω; a 200 Ω fixed part could never reach it). Adjust the trimpot at calibration to set the exact gain. Alternatively, accept the 1.2% gain error and correct it in firmware via a gain calibration coefficient.
 
 ### Part B — Noise Analysis
 
@@ -171,9 +171,9 @@ This is an extremely stringent CMRR requirement. Check against the INA datasheet
 
 **Real INA CMRR at gain = 253:**
 
-INA128 datasheet specifies CMRR at gain = 100: typically 110 dB (minimum), at DC. At gain = 253, CMRR is typically slightly better (110-120 dB) due to the larger differential gain.
+The TI INA128 datasheet specifies DC CMRR at gain = 100 of 110 dB minimum (PA/UA grades) and 120 dB minimum (P/U grades), with 130 dB minimum for the U grade on the newer fabrication process. At gain = 253 CMRR is somewhat better, since it rises with gain.
 
-**Conclusion:** The INA128 at gain = 253 falls about 10 dB short of the 130 dB requirement at DC. Options:
+**Conclusion:** Standard INA128 grades fall roughly 10-20 dB short of the 130 dB requirement at DC; only the best grade reaches it, with no margin. Options:
 
 1. **Reduce the CM variation:** Add a low-noise LDO to power the bridge excitation, reducing the supply noise from ±0.5 V to ±50 mV. This reduces the CMRR requirement by 20 dB to 110 dB — achievable.
 

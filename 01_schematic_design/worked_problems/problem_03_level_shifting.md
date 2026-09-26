@@ -149,29 +149,27 @@ Circuit (per signal, SDA shown):
        │
    (MCU, 3.3 V)
 
-Detailed operation — LOW driven from 3.3 V side (MCU pulls SDA low):
-  MCU open-drain output pulls SDA_3V3 to GND.
-  VGS = VDD_1V8 - 0 V = 1.8 V > VGS_threshold (0.8 V typical).
-  MOSFET turns on, pulling SDA_1V8 to GND through the channel.
-  Both sides see LOW. ✓
-
-Detailed operation — LOW driven from 1.8 V side (processor pulls SDA low):
-  Processor pulls SDA_1V8 to GND.
-  The source is now at GND (pulled by processor); the gate is tied to VDD_1V8 = 1.8 V.
-  VGS = 1.8 V > threshold → MOSFET turns on strongly.
-  SDA_3V3 is pulled low through the channel. ✓
-
-  Additionally, if the MOSFET does not turn on fast enough, the body diode
-  conducts: VD = VDD_1V8 (1.8 V), VS = SDA_3V3 side.
-  Body diode conducts when VS > VD + 0.7 V → if SDA_3V3 > 2.5 V, body diode
-  pulls it toward 1.8 V + 0.7 = 2.5 V.
-  Then MOSFET channel takes over, pulling SDA_3V3 fully to GND. ✓
+Connection (NXP application note AN97055): gate to VDD_1V8, source to the
+1.8 V side (SDA_1V8), drain to the 3.3 V side (SDA_3V3). The body diode therefore
+points from the 1.8 V side (anode) to the 3.3 V side (cathode).
 
 HIGH state (neither side pulling low):
-  Both pull-up resistors hold respective sides high: SDA_3V3 = 3.3 V, SDA_1V8 = 1.8 V.
-  MOSFET: Gate = 1.8 V, Source = SDA_3V3 = 3.3 V.
-  VGS = 1.8 - 3.3 = -1.5 V → NMOS is OFF (VGS is negative).
-  The two sides are isolated — each floats to its own pull-up voltage. ✓
+  SDA_1V8 = 1.8 V (its pull-up), so VGS = 1.8 - 1.8 = 0 V → MOSFET OFF.
+  SDA_3V3 is held at 3.3 V by its own pull-up; the body diode is reverse-biased.
+  The two sides are isolated — each sits at its own pull-up voltage. ✓
+
+Detailed operation — LOW driven from 1.8 V side (processor pulls SDA_1V8 low):
+  The source goes to GND; the gate is at 1.8 V.
+  VGS = 1.8 V > VGS(th) (0.8-1.5 V for the BSS138) → MOSFET turns on.
+  SDA_3V3 is pulled low through the channel. ✓
+
+Detailed operation — LOW driven from 3.3 V side (MCU pulls SDA_3V3 low):
+  The drain goes to GND. The body diode (source → drain) now conducts and pulls
+  SDA_1V8 down to about 0.6-0.7 V.
+  That raises VGS to about 1.1-1.2 V, the MOSFET turns on, and the channel pulls
+  SDA_1V8 the rest of the way to GND. Both sides see LOW. ✓
+  (With a 1.8 V gate drive, VGS(th) up to 1.5 V leaves little overdrive — check
+  the MOSFET's worst-case threshold, or use a lower-threshold part.)
 ```
 
 **Pull-up resistor selection for 400 kHz (Fast-mode):**
@@ -185,7 +183,7 @@ tr = 0.8473 × R_pull × C_bus
 For tr = 300 ns, C_bus = 50 pF (estimate for short PCB trace + device inputs):
   R_pull ≤ 300 ns / (0.8473 × 50 pF) = 7.1 kΩ
 
-Use 4.7 kΩ on both sides — provides 190 ns rise time for 50 pF load.
+Use 4.7 kΩ on both sides — provides 199 ns rise time for 50 pF load.
 If traces are long or there are multiple devices, re-measure C_bus and recalculate.
 
 Power consumption: I_pullup = VDD / R_pullup
@@ -283,19 +281,20 @@ Reason 1 — The application processor handles LPDDR5 natively:
   Modern application processors (e.g., Qualcomm Snapdragon, MediaTek Dimensity,
   Arm Neoverse) integrate LPDDR5 PHY (physical layer) directly on-die.
   The DDR PHY contains its own internal voltage translation between the core
-  voltage domain and the LPDDR5 signalling domain (which uses VDDQ = 1.1 V or
-  0.6 V differential for LPDDR5). No discrete level shifter exists in this path.
+  voltage domain and the LPDDR5 signalling domain (LPDDR5 I/O runs at
+  VDDQ = 0.5 V — not the 1.2 V assumed for Domain D). No discrete level
+  shifter exists in this path.
 
 Reason 2 — LPDDR5 speed makes discrete level shifting impractical:
-  LPDDR5 data rates: 6400-8533 Mbps per pin (LP5) or 3200-4266 MT/s (LPDDR5X).
+  LPDDR5 data rates: up to 6400 MT/s per pin (LPDDR5) and 8533 MT/s (LPDDR5X).
   Any discrete level shifter in this path would add > 0.5 ns of propagation delay
   and > 0.2 pF of capacitance per pin.
   With 32 data pins: the additional capacitance would degrade signal integrity
   below JEDEC margins at these speeds. The timing budget at 6400 Mbps per pin
   is measured in picoseconds — no room for a discrete shifter.
 
-Reason 3 — LPDDR5 uses a pseudo-open-drain interface:
-  LPDDR5 uses a write-levelling and read-training calibration that requires
+Reason 3 — LPDDR5 uses trained, terminated low-swing signalling:
+  LPDDR5 uses low-voltage swing-terminated logic (LVSTL) with write-levelling and read-training calibration that requires
   the memory and PHY to cooperate at the silicon level. A discrete device
   in this path would disrupt the calibration protocol.
 

@@ -42,20 +42,20 @@ Volume pricing for passive components follows a steep curve. Each unique part nu
    1000-10,000 pieces per value. Unique low-volume values may sit in inventory
    for years, tying up capital.
 
-3. Volume pricing penalty: Ordering 10,000 × 14 different resistor values =
-   714 pieces of each. At this quantity, unit price is typically 10-20× higher
-   than ordering 10,000 × 10,000 pieces of a single value.
+3. Volume pricing penalty: 14 pull-up positions per board, each a different
+   value, means 10,000 pieces of each of 14 values per year (140,000 in total).
+   Consolidated, the same 140,000 pieces are one value on full reels.
 
-   Example:
-     14 resistor values × 10,000 units = 714 pieces each
-     Unit price at 714 pcs: £0.015 per resistor
-     Total cost: 14 × 714 × £0.015 = £150
+   Example (illustrative prices):
+     14 resistor values × 10,000 pieces each
+     Unit price at 10,000 pcs: £0.015 per resistor
+     Total cost: 14 × 10,000 × £0.015 = £2,100
 
    With 1 rationalised value × 140,000 pieces:
      Unit price at 140,000 pcs: £0.002 per resistor
      Total cost: 1 × 140,000 × £0.002 = £280
 
-   Cost is slightly higher in this case, but:
+   Direct saving: about £1,800 per year on this family alone, and in addition:
 ```
 
 **Indirect cost savings of rationalisation (often larger than direct savings):**
@@ -172,7 +172,7 @@ This variant:
     per unit, least supply chain risk
 
 Example part: Murata GRM155R71C104KA88 (100 nF 16 V X7R 0402)
-  or Yageo CC0402KRX7R9BB104
+  or Yageo CC0402KRX7R9BB104 (a 50 V-rated 100 nF X7R 0402 — also suitable, with even less DC bias loss)
 
 Price benefit: Consolidating 6 variants to 1 at 10,000 units/year typically
   yields 15-30% cost reduction vs blended average price of multiple variants,
@@ -223,7 +223,7 @@ Price benefit: Consolidating 6 variants to 1 at 10,000 units/year typically
 - Check the enable pin logic — some LDOs have active-high enable, others active-low. If the enable signal polarity differs between the old and new parts, add an inversion or connect to VIN directly.
 - Verify thermal management: if the consolidated part handles more current than the original parts at some positions, check that the PCB copper pour or heat sinking is adequate.
 
-**Example:** Texas Instruments TLV755P (500 mA, 1.5-6.5 V input, 10 µV_rms noise, 2 µA IQ, ceramic cap stable) is a versatile commodity LDO suitable for consolidation in most battery-powered applications.
+**Example:** Texas Instruments TLV755P (500 mA, 1.45-5.5 V input, 25 µA typical IQ, stable with a 1 µF ceramic output capacitor; TI datasheet) is a versatile commodity LDO for 5 V-fed battery-powered positions. Its output noise is 71.5 µV_rms (10 Hz-100 kHz), so it is not a low-noise LDO: a noise-sensitive analogue position (criterion 4) or a 12 V input (criterion 2) needs a different part.
 
 ### Part E — BJT Switch Consolidation
 

@@ -53,41 +53,24 @@ the MCU explicitly triggers it. This satisfies requirement 4 naturally.
 
 ### Step 2 — Supervisor IC Selection
 
-The TPS3813 (specified) provides:
+The TPS3813 (specified) provides (TI TPS3813 datasheet):
 
 ```
-Monitoring threshold: Programmable via SENSE pin resistor divider.
-  Target: 3.0 V threshold.
-  VDD_3V3 nominal = 3.3 V; threshold = 3.0 V (91% of nominal — standard UVLO margin).
+Monitoring threshold: fixed per device variant — there is no adjustable SENSE input.
+  TPS3813K33: VIT- = 2.93 V typical (2.87 V to 3.00 V), matching the ~3.0 V target
+  (about 89% of the 3.3 V nominal).
 
-Reset timeout: 200 ms (matches the 100 ms stability requirement with margin).
-  Note: TPS3813 internal power-on reset delay = 200 ms after SENSE exceeds threshold.
-  This satisfies "stable for at least 100 ms" — it provides 200 ms.
+Reset delay: fixed, 25 ms typical (20-30 ms) after VDD rises above VIT.
+  This does NOT meet requirement 1 ("stable for at least 100 ms").
+  Either choose a supervisor with a reset delay of at least 100 ms, or extend the
+  hold-off (e.g. an additional delay stage on nRESET_SYS, or MCU firmware that waits
+  a further 75 ms before releasing the FPGA and touching the EEPROM).
 
-Watchdog function: TPS3813 includes a watchdog timer input (WDI).
-  If WDI is not toggled within 200 ms, RESET asserts.
-  WDI is driven by MCU firmware GPIO.
+Watchdog function: window watchdog on WDI. A trigger that arrives too late OR too
+  early asserts RESET. The window ratio is set by WDR and the timeout by WDT.
+  WDI is driven by MCU firmware GPIO; minimum WDI trigger pulse width 50 ns.
 
 RESET output: open-drain, active-low. Pull up to VDD_3V3 via 10 kΩ resistor.
-```
-
-**SENSE pin divider calculation:**
-
-```
-TPS3813 SENSE threshold: 1.22 V (internal reference)
-VDD_3V3 reset threshold: 3.0 V
-
-R_bottom / (R_top + R_bottom) = 1.22 / 3.0 = 0.407
-
-Choose R_bottom = 10 kΩ (standard value for low quiescent current):
-  R_top = R_bottom × (3.0/1.22 - 1) = 10k × (2.459 - 1) = 14.59 kΩ → use 14.7 kΩ (E96)
-
-Verify:
-  V_SENSE at VDD_3V3 = 3.0 V: 3.0 × 10k/(14.7k + 10k) = 3.0 × 0.405 = 1.215 V
-  (1.215 V < 1.22 V → RESET still asserted at exactly 3.0 V — correct behaviour)
-  
-  V_SENSE at VDD_3V3 = 3.05 V: 3.05 × 0.405 = 1.235 V > 1.22 V → threshold crossed
-  → RESET de-asserts after 200 ms timeout. ✓
 ```
 
 ### Step 3 — Manual Reset Button Debouncing
@@ -145,7 +128,7 @@ Both are open-drain — they can be safely wire-ANDed without short-circuit risk
 
 ### Step 4 — Glitch Filtering (Requirement 5)
 
-The supervisor IC already provides this — its 200 ms reset delay means supply glitches shorter than 200 ms do not cause a reset. But for sub-millisecond glitches on VDD_3V3 that cause nRESET_SYS to momentarily glitch low despite the supervisor's assertion:
+The supervisor asserts RESET whenever VDD_3V3 dips below its threshold; its delay applies only on release, so it does not filter short dips — a sub-millisecond glitch below threshold produces a full reset. For short glitches that cause nRESET_SYS to momentarily glitch low:
 
 ```
 Add a glitch filter on nRESET_SYS before it reaches the MCU:
@@ -209,14 +192,14 @@ If firmware hangs (infinite loop, hard fault, exception):
 
 WDI pulse requirement (TPS3813): Minimum pulse width 50 ns to register a kick.
   MCU GPIO toggle = 1 clock cycle at 168 MHz = ~6 ns — too short!
-  Solution: Drive WDI via GPIO with a minimum pulse width enforced by firmware
-  (2 CPU cycles = 12 ns at 168 MHz — still marginal).
-  Better: Use a 10 nF capacitor from the WDI GPIO to GND, with 1 kΩ series.
-  The RC pulse stretches the GPIO edge to τ = 10 µs, well above the 50 ns minimum.
+  Solution: hold the WDI GPIO high for at least 50 ns in firmware (about 9 CPU
+  cycles at 168 MHz — a short delay loop), then drive it low.
+  Do not use an RC "pulse stretcher" (e.g. 1 kΩ + 10 nF): an RC low-pass attenuates
+  a 6 ns pulse — to well under 1% of its amplitude with τ = 10 µs — rather than
+  lengthening it, so the kick would never register.
 
-  WDI filter: 1 kΩ + 10 nF creates a 10 µs pulse from a single GPIO toggle.
-  The capacitor discharges between kicks (the MCU toggles, then releases to idle state).
-  Verify: 200 ms watchdog period >> 10 µs pulse duration ✓
+  Because the TPS3813 has a window watchdog, kicks must also not come too early:
+  schedule them inside the window set by WDR/WDT, not simply "as often as possible".
 ```
 
 ---
@@ -226,9 +209,7 @@ WDI pulse requirement (TPS3813): Minimum pulse width 50 ns to register a kick.
 ```
 VDD_3V3
     │
-    ├──[R_top 14.7 kΩ]──[R_bot 10 kΩ]──GND   (SENSE divider for TPS3813)
-    │          │
-    │          └──── TPS3813 SENSE pin
+    ├──── TPS3813K33 VDD pin (fixed 2.93 V threshold, no divider)
     │
     ├──[10 kΩ pull-up]── TPS3813 RESET (open-drain output) ──────┐
     │                                                              │ (wire-AND)
@@ -239,7 +220,7 @@ VDD_3V3
     │                                              ┌──[1 kΩ + 10 nF glitch filter]──┐
     │                                              │                                  │
     │                                          nRESET_MCU (MCU)           (MCU GPIO → TPS3813 WDI)
-    │                                                                      (via 1 kΩ + 10 nF pulse stretcher)
+    │                                                                      (firmware-timed pulse ≥ 50 ns)
     │
     └── MCU GPIO_FPGA_PROG ──[33 Ω]── FPGA PROGRAM_B
         MCU GPIO_FPGA_DONE ──[33 Ω]── FPGA DONE (input to MCU)
@@ -270,8 +251,8 @@ must be connected to nRESET_SYS. If the FPGA holds critical state that must surv
 MCU resets, isolate FPGA reset from nRESET_SYS and implement FPGA-independent
 watchdog in firmware.
 
-t = 200 ms + 200 ms (new supervisor timeout after nRESET_SYS assertion):
-  Supervisor de-asserts nRESET_SYS (200 ms delay after VDD_3V3 still valid)
+t = 200 ms + ~25 ms (supervisor reset delay after the watchdog event):
+  Supervisor de-asserts nRESET_SYS
   MCU boots fresh, reconfigures FPGA.
 ```
 
@@ -332,6 +313,6 @@ t = 200 ms + 200 ms (new supervisor timeout after nRESET_SYS assertion):
 
 - "How do you prevent the watchdog from being accidentally kicked in an interrupt service routine while the main loop is stuck?" → The watchdog kick must only occur in the main thread context after completing a checklist of critical tasks (not just toggling a GPIO). Some designs use a "watchdog service record" where each software module sets a bit when it completes its iteration; the main loop only kicks the watchdog if all required bits are set, then clears them.
 
-- "What if VDD_3V3 rises very slowly — does the supervisor still work correctly?" → The TPS3813 threshold detection is ratiometric to VDD, so a slow supply ramp does not cause metastability. The 200 ms timeout begins only after the threshold is crossed — if the supply takes 500 ms to rise, the system is held in reset for 700 ms total, not 200 ms. This is correct behaviour.
+- "What if VDD_3V3 rises very slowly — does the supervisor still work correctly?" → The TPS3813 threshold detection is ratiometric to VDD, so a slow supply ramp does not cause metastability. The 25 ms reset delay begins only after the threshold is crossed — if the supply takes 500 ms to rise, the system is held in reset for about 525 ms total. This is correct behaviour.
 
 - "Can you use the MCU's internal power-on reset instead of an external supervisor?" → The internal POR monitors VDD for the MCU only. It provides no watchdog function, no monitoring of other rails, no monitoring of threshold crossings during operation (brownout detection exists on some devices but is less configurable). For production designs, external supervisors with precise thresholds and watchdog timers provide more reliable system protection.

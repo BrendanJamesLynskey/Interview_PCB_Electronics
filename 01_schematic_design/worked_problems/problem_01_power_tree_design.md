@@ -68,7 +68,7 @@ Assuming 90% efficiency for each synchronous buck converter stage:
   P_input ≈ 47.8 / 0.90 = 53.1 W
   Maximum input current from 12 V: 53.1 / 12 = 4.4 A
 
-Wall adapter specification: 12 V, 6 A (60 W) — with 25% headroom over worst-case.
+Wall adapter specification: 12 V, 6 A (60 W) — 13% headroom over the 53.1 W worst-case input power (25% over the 47.8 W load power).
 PCB input connector and traces: rate for 6 A continuous.
 Input fuse or eFuse: set to 5.5 A trip threshold.
 ```
@@ -85,7 +85,7 @@ VCORE (12 V → 0.9 V, 12 A):
   or Renesas ISL6364 (dual-phase, 12 A).
 
 VCPU_MEM (12 V → 1.1 V, 4 A):
-  Use: Single-phase synchronous buck (e.g., TI TPS62130, up to 3 A, or TPS53819A).
+  Use: Single-phase synchronous buck rated for at least 4 A (a 3 A converter such as the TI TPS62130 is under-rated for this rail).
 
 VDDR (12 V → 1.35 V, 6 A):
   Use: Single-phase synchronous buck (e.g., TI TPS56221, 6 A, 2 MHz).
@@ -195,7 +195,7 @@ t = 6 ms:       All rails in regulation; supervisory IC asserts PROC_POR_N
 t = 10 ms:      Processor begins execution (internal POR hold-time expires)
 
 Constraint check:
-  VIO_1V8 start at ~3 ms (same time as VCPU_MEM enable)
+  VIO_1V8 start at ~4 ms (same time as VDDR enable)
   VIO_1V8 in regulation at ~5.5 ms
   VCORE reached regulation at ~3 ms
   Δt(VCORE_start → VIO_1V8_start) = 1 ms < 5 ms required ✓
@@ -283,7 +283,7 @@ Single-phase 12 V → 0.9 V, 12 A at 500 kHz:
   Duty cycle: D = 0.9/12 = 7.5%
   Inductor current ripple: ΔIL = (12 - 0.9) × 0.075 / (500 kHz × L)
     For L = 300 nH: ΔIL = 11.1 × 0.075 / (500k × 300n) = 5.55 A ripple
-  Input RMS ripple current = IL × √(D(1-D)) = 12 × √(0.075 × 0.925) = 3.24 A RMS
+  Input RMS ripple current = IL × √(D(1-D)) = 12 × √(0.075 × 0.925) = 3.16 A RMS
   → Large input capacitor required to handle this current without excessive ripple
 
 2-phase interleaved buck (phases 180° apart):

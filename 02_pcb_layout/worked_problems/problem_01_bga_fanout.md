@@ -55,14 +55,21 @@ Geometry check for via between pads:
    0.375 mm required > 0.25 mm available — does not fit with standard vias.
 ```
 
-**Result: Standard 0.3 mm drill through-hole vias do NOT fit between adjacent 1.0 mm pitch balls at standard fab rules.**
+**Result: a via placed on the row line between two adjacent balls does NOT fit at standard fab rules.**
 
-However, with a reduced via pad size — using a via annular ring of 0.075 mm (advanced fab, feasible at most HDI houses) — the via pad diameter drops to 0.45 mm:
+That is not where a dog-bone via goes, though. The standard dog-bone places the via at the centre of the square formed by four balls, on the diagonal:
 
 ```
-Space required: 0.1 (clearance) + 0.225 (half of 0.45 mm pad) = 0.325 mm
-Available: 0.25 mm — still too tight.
+Ball centre to via centre (diagonal): 1.0 × √2 / 2 = 0.707 mm
+Minus ball pad radius (0.25) and via pad radius (0.275):
+  pad-to-pad clearance = 0.707 - 0.25 - 0.275 = 0.182 mm ≥ 0.1 mm ✓
+
+Routing between the resulting via grid (via centres 1.0 mm apart, 0.55 mm pads):
+  gap between via pads = 1.0 - 0.55 = 0.45 mm
+  one 0.1 mm trace with 0.1 mm clearance each side needs 0.3 mm ✓ (two traces need 0.5 mm ✗)
 ```
+
+So at 1.0 mm pitch every ball can get a standard 0.3 mm through-hole dog-bone via; the real limit is that only one trace fits between adjacent vias per routing layer, which sets how many rows can escape per layer.
 
 In practice, at 1.0 mm pitch the standard escape strategy is:
 
@@ -157,7 +164,7 @@ plane layers (L2, L4) to provide isolation.
 
 SFP+ connectors have through-hole signal pins at 0.8 mm pitch. Use via-in-pad or dog-bone escape at the connector footprint. Route the final 5 mm to the connector on L1 (microstrip) if via-to-connector distance is short — this avoids an additional via transition and its stub.
 
-If the connector uses a through-hole via, back-drill the via stub to reduce stub length (SERDES is typically 6.25 Gb/s for SFP+; stub resonance check is required for the via barrel length in a 1.6 mm board — at ~30 GHz resonance this is not an issue, but confirm calculation).
+If the connector uses a through-hole via, back-drill the via stub to reduce stub length (SFP+ runs at about 10.3 Gb/s per lane; stub resonance check is required for the via barrel length in a 1.6 mm board — at ~30 GHz resonance this is not an issue, but confirm calculation).
 
 **Inter-pair length matching:**
 
@@ -210,7 +217,7 @@ Route VCCINT on L4 as a poured copper region dedicated to VCCINT. Adjacent power
 
 ## Key Takeaways
 
-- At 1.0 mm BGA pitch, standard through-hole via dog-bone escape works for the outer 2-3 rows; interior balls require via-in-pad with filled-and-capped vias
+- At 1.0 mm BGA pitch, a standard 0.3 mm through-hole via fits on the diagonal between four balls (0.18 mm clearance), so dog-bone escape is possible for every ball; the limit is one trace between adjacent vias per layer, which is what drives the layer count (via-in-pad frees more channels)
 - Layer budget at the BGA perimeter limits how many signals can escape on each routing layer; plan the layer assignment before routing to avoid dead ends
 - SERDES differential pairs require: (a) correct differential impedance — designed into the stackup and trace geometry; (b) intra-pair length matching within ±0.1 mm — enforced by serpentine tuning at the BGA exit; (c) continuous reference planes — verified by checking for plane splits under the route
 - Power via-in-pad for VCCINT balls uses copper-filled vias to connect the ball directly to the power plane — anti-pads on intermediate plane layers are essential to avoid unintentional short circuits

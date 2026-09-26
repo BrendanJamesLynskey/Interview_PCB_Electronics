@@ -426,7 +426,7 @@ A 25 mm ground clip has inductance of approximately 25 nH. Combined with the pro
 tip capacitance of ~15 pF, this forms a resonant circuit at:
 
 ```
-f = 1 / (2π × √(25 nH × 15 pF)) ≈ 232 MHz
+f = 1 / (2π × √(25 nH × 15 pF)) ≈ 260 MHz
 ```
 
 At frequencies near this resonance, the probe ground return has very high impedance,

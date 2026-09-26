@@ -65,13 +65,15 @@ The required fabrication sequence for a via-in-pad is:
 
 **IPC-4761 via fill type reference:**
 
-| Type | Fill | Cap |
-|---|---|---|
-| I | None | None |
-| II | Tented (mask only) | — |
-| IV b | Plugged | — |
-| VI a/b | Filled | No cap |
-| VII | Filled | Copper capped |
+| Type | Protection |
+|---|---|
+| I | Tented (dry-film mask over the via) |
+| II | Tented and covered |
+| III | Plugged |
+| IV | Plugged and covered |
+| V | Filled |
+| VI | Filled and covered (mask over the fill) |
+| VII | Filled and capped (planarised, copper-metallised cap) |
 
 Type VII is the only type suitable for via-in-pad under SMT components.
 
@@ -127,7 +129,7 @@ This is at the upper end of acceptable. In practice, solder filling the via from
 
 Use a grid of 9 apertures (3 × 3) rather than a single aperture covering the full pad. Each aperture is approximately 0.8 × 0.8 mm with 0.2 mm gaps between them. This grid pattern:
 - Allows flux outgassing channels to prevent voiding
-- Maintains adequate paste volume (80–90% coverage)
+- Maintains adequate paste volume (9 × 0.64 mm² = 5.8 mm², about 64% of the 9 mm² pad)
 - Reduces void area in the solder joint per IPC-7093
 
 ### Part D — Risk of Omitting Fill and Cap
